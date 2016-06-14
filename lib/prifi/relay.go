@@ -19,6 +19,7 @@ package prifi
  * TODO : given the number of already-buffered Ciphers (per trustee), we need to tell him to slow down
  * TODO : if something went wrong before, this flag should be used to warn the clients that the config has changed
  * TODO : sanity check that we don't have twice the same client
+ * TODO : create a "send" function that takes as parameter the data we want and the message to print if an error occurs (since the sending block always looks the same)
  */
 
 import (
@@ -40,6 +41,8 @@ const INBETWEEN_CONFIG_SLEEP_TIME = 0 * time.Second
 const NEWCLIENT_CHECK_SLEEP_TIME = 10 * time.Millisecond
 const CLIENT_READ_TIMEOUT = 5 * time.Second
 const RELAY_FAILED_CONNECTION_WAIT_BEFORE_RETRY = 10 * time.Second
+const TRUSTEE_WINDOW_LOWER_LIMIT = 1
+const MAX_ALLOWED_TRUSTEE_CIPHERS_BUFFERED = 10
 
 // possible state the trustees are in. This restrict the kind of messages they can receive at a given point
 const (
@@ -100,6 +103,7 @@ type RelayState struct {
 
 	bufferedTrusteeCiphers   map[int32]BufferedCipher
 	bufferedClientCiphers    map[int32]BufferedCipher
+	trusteeCipherTracker	 []int
 	CellCoder                dcnet.CellCoder
 	clients                  []NodeRepresentation
 	currentDCNetRound        DCNetRound
@@ -146,6 +150,7 @@ func NewRelayState(nTrustees int, nClients int, upstreamCellSize int, downstream
 	params.UseDummyDataDown = useDummyDataDown
 	params.UseUDP = useUDP
 	params.WindowSize = windowSize
+	params.trusteeCipherTracker = make([]int,nTrustees) 
 
 	//prepare the crypto parameters
 	rand := config.CryptoSuite.Cipher([]byte(params.Name))
@@ -337,6 +342,23 @@ func (p *PriFiProtocol) Received_TRU_REL_DC_CIPHER(msg TRU_REL_DC_CIPHER) error 
 			newKey.Data[msg.TrusteeId] = msg.Data
 			p.relayState.bufferedTrusteeCiphers[msg.RoundId] = newKey
 		}
+
+		//Here is the control to regulate the trustees ciphers in case they should stop sending
+		p.relayState.trusteeCipherTracker[msg.TrusteeId]++ 	//Increment the currently buffered ciphers for this trustee
+		currentCapacity := MAX_ALLOWED_TRUSTEE_CIPHERS_BUFFERED - p.relayState.trusteeCipherTracker[msg.TrusteeId] //Get our remaining allowed capacity
+
+		if(currentCapacity <= TRUSTEE_WINDOW_LOWER_LIMIT) {	//Check if the capacity is lower then allowed
+			toSend := &REL_TRU_TELL_RATE_CHANGE{currentCapacity} 
+			err := p.messageSender.SendToTrustee(msg.TrusteeId, toSend) //send the trustee a message informing them of the capacity
+			if err != nil {
+				e := "Could not send REL_TRU_TELL_RATE_CHANGE to " + strconv.Itoa(msg.TrusteeId) + "-th trustee for round " + strconv.Itoa(int(p.relayState.currentDCNetRound.currentRound)) + ", error is " + err.Error()
+				dbg.Error(e)
+				return errors.New(e)
+			} else {
+				dbg.Lvl3("Relay : sent REL_TRU_TELL_RATE_CHANGE to " + strconv.Itoa(msg.TrusteeId) + "-th trustee for round " + strconv.Itoa(int(p.relayState.currentDCNetRound.currentRound)))
+			}
+		}
+
 	}
 	return nil
 }
@@ -443,6 +465,24 @@ func (p *PriFiProtocol) sendDownstreamData() error {
 			dbg.Lvl3("Relay : using pre-cached DC-net cipher from trustee " + strconv.Itoa(trusteeId) + " for round " + strconv.Itoa(int(nextRound)))
 			p.relayState.CellCoder.DecodeTrustee(data)
 			p.relayState.currentDCNetRound.trusteeCipherCount++
+
+
+			//Here is the control to regulate the trustees ciphers incase they should continue sending
+			previousCapacity := MAX_ALLOWED_TRUSTEE_CIPHERS_BUFFERED - p.relayState.trusteeCipherTracker[trusteeId] //Calculate the previous capacity
+			p.relayState.trusteeCipherTracker[trusteeId]--
+
+			if(previousCapacity == TRUSTEE_WINDOW_LOWER_LIMIT) { //if the previous capacity was at the lower limit allowed
+				toSend := &REL_TRU_TELL_RATE_CHANGE{previousCapacity+1} 
+				err := p.messageSender.SendToTrustee(trusteeId, toSend) //send the trustee informing them of the current capacity that has free'd up
+				if err != nil {
+					e := "Could not send REL_TRU_TELL_RATE_CHANGE to " + strconv.Itoa(trusteeId) + "-th trustee for round " + strconv.Itoa(int(p.relayState.currentDCNetRound.currentRound)) + ", error is " + err.Error()
+					dbg.Error(e)
+					return errors.New(e)
+				} else {
+					dbg.Lvl3("Relay : sent REL_TRU_TELL_RATE_CHANGE to " + strconv.Itoa(trusteeId) + "-th trustee for round " + strconv.Itoa(int(p.relayState.currentDCNetRound.currentRound)))
+				}
+			}
+
 		}
 		delete(p.relayState.bufferedTrusteeCiphers, nextRound)
 	}

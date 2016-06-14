@@ -108,6 +108,10 @@ type TRU_REL_TELL_PK struct {
 	Pk        abstract.Point
 }
 
+type REL_TRU_TELL_RATE_CHANGE struct {
+	WindowCapacity 	int
+}
+
 /**
  * This function must be called, on the correct host, with messages that are for him.
  * ie. if on this machine, prifi is the instance of a Relay protocol, any call to SendToRelay(m) on any machine
@@ -148,6 +152,8 @@ func (prifi *PriFiProtocol) ReceivedMessage(msg interface{}) error {
 		err = prifi.Received_REL_TRU_TELL_CLIENTS_PKS_AND_EPH_PKS_AND_BASE(typedMsg)
 	case REL_TRU_TELL_TRANSCRIPT:
 		err = prifi.Received_REL_TRU_TELL_TRANSCRIPT(typedMsg)
+	case REL_TRU_TELL_RATE_CHANGE:
+		err = prifi.Received_REL_TRU_TELL_RATE_CHANGE(typedMsg)
 	case TRU_REL_DC_CIPHER:
 		err = prifi.Received_TRU_REL_DC_CIPHER(typedMsg)
 	case TRU_REL_SHUFFLE_SIG:

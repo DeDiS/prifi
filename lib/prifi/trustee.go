@@ -41,13 +41,11 @@ const (
 // possible sending mode (rates, to be precise) for the trustees
 const (
 	TRUSTEE_KILL_SEND_PROCESS int16 = iota //kill the goroutine for sending messages
-	TRUSTEE_RATE_STOPPED                   //never send
-	TRUSTEE_RATE_HALF                      //sleeps after each message
-	TRUSTEE_RATE_FULL                      //never sleeps
+	TRUSTEE_RATE_ACTIVE
+	TRUSTEE_RATE_STOPPED
 )
 
-//this is the time a trustee sleeps after each sent message in the TRUSTEE_RATE_HALF mode
-const TRUSTEE_SLEEP_TIME = 1 * time.Second
+const TRUSTEE_BASE_SLEEP_TIME = time.Second	//this is the base unit for how much time the trustee sleeps between ciphers to the relay
 
 //the mutable variable held by the client
 type TrusteeState struct {
@@ -63,7 +61,7 @@ type TrusteeState struct {
 	PayloadLength       int
 	privateKey          abstract.Secret
 	PublicKey           abstract.Point
-	sendingRate         chan int16
+	sendingRate         chan int16			
 	sharedSecrets       []abstract.Point
 	TrusteeId           int
 }
@@ -157,37 +155,35 @@ func (p *PriFiProtocol) Send_TRU_REL_PK() error {
 	return nil
 }
 
+
+//TODO: if this is a class method, why do we need to pass the channel?
 /**
  * This method sends DC-net ciphers to the relay continuously once started. One can control the rate by sending flags to "rateChan".
  */
 func (p *PriFiProtocol) Send_TRU_REL_DC_CIPHER(rateChan chan int16) {
 
-	stop := false
-	currentRate := TRUSTEE_RATE_HALF
 	roundId := int32(0)
+	currentRate := TRUSTEE_RATE_ACTIVE
 
-	//TODO: use of "stop" variable is not essential
-	for !stop {
+	for {
 		select {
 		case newRate := <-rateChan:
 			currentRate = newRate
 			dbg.Lvl2("Trustee " + strconv.Itoa(p.trusteeState.Id) + " : rate changed from " + strconv.Itoa(int(currentRate)) + " to " + strconv.Itoa(int(newRate)))
 
-			if newRate == TRUSTEE_KILL_SEND_PROCESS {
-				stop = true
+			if currentRate == TRUSTEE_KILL_SEND_PROCESS {
+				return
 			}
 
 		default:
-			if currentRate == TRUSTEE_RATE_FULL {
+			if currentRate == TRUSTEE_RATE_ACTIVE {
 				roundId, _ = sendData(p, roundId)
-				time.Sleep(1000 * time.Millisecond)
-
-			} else if currentRate == TRUSTEE_RATE_HALF {
-				roundId, _ = sendData(p, roundId)
-				time.Sleep(TRUSTEE_SLEEP_TIME)
+				time.Sleep(TRUSTEE_BASE_SLEEP_TIME)
 
 			} else if currentRate == TRUSTEE_RATE_STOPPED {
-				time.Sleep(TRUSTEE_SLEEP_TIME)
+				time.Sleep(TRUSTEE_BASE_SLEEP_TIME)
+			} else {
+				dbg.Lvl2("Trustee " + strconv.Itoa(p.trusteeState.Id) + " : In unrecognized sending state")
 			}
 
 		}
@@ -439,6 +435,24 @@ func (p *PriFiProtocol) Received_REL_TRU_TELL_TRANSCRIPT(msg REL_TRU_TELL_TRANSC
 
 	//everything is ready, we start sending
 	go p.Send_TRU_REL_DC_CIPHER(p.trusteeState.sendingRate)
+
+	return nil
+}
+
+
+/**
+ * This function Handles the request from the Relay when a cipher sending rate change is required
+ * 
+ * Either the trustee must stop sending because the relay is at full capacity
+ * Or the trustee sends normally because the relay has emptied up enough capacity
+ */
+func (p *PriFiProtocol) Received_REL_TRU_TELL_RATE_CHANGE(msg REL_TRU_TELL_RATE_CHANGE) error {
+
+	if(msg.WindowCapacity <= TRUSTEE_WINDOW_LOWER_LIMIT) { //Relay is at almost full capacity stop sending
+		p.trusteeState.sendingRate <- TRUSTEE_RATE_STOPPED
+	} else { 	//Relay is operating at normal capacity to continue sending
+		p.trusteeState.sendingRate <- TRUSTEE_RATE_ACTIVE
+	}
 
 	return nil
 }
