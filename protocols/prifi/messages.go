@@ -47,6 +47,11 @@ type Struct_REL_TRU_TELL_TRANSCRIPT struct {
 	prifi_lib.REL_TRU_TELL_TRANSCRIPT
 }
 
+type Struct_REL_TRU_TELL_RATE_CHANGE struct {
+	*sda.TreeNode
+	prifi_lib.REL_TRU_TELL_RATE_CHANGE
+}
+
 type Struct_TRU_REL_DC_CIPHER struct {
 	*sda.TreeNode
 	prifi_lib.TRU_REL_DC_CIPHER
@@ -66,3 +71,5 @@ type Struct_TRU_REL_TELL_PK struct {
 	*sda.TreeNode
 	prifi_lib.TRU_REL_TELL_PK
 }
+
+

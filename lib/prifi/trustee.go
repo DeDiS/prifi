@@ -168,13 +168,15 @@ func (p *PriFiProtocol) Send_TRU_REL_DC_CIPHER(rateChan chan int16) {
 	for {
 		select {
 		case newRate := <-rateChan:
-			currentRate = newRate
-			dbg.Lvl2("Trustee " + strconv.Itoa(p.trusteeState.Id) + " : rate changed from " + strconv.Itoa(int(currentRate)) + " to " + strconv.Itoa(int(newRate)))
+			if(currentRate != newRate) {
+				dbg.Lvl2("Trustee " + strconv.Itoa(p.trusteeState.Id) + " : rate changed from " + strconv.Itoa(int(currentRate)) + " to " + strconv.Itoa(int(newRate)))
 
-			if currentRate == TRUSTEE_KILL_SEND_PROCESS {
-				return
+				currentRate = newRate 	// Change Rate
+				
+				if currentRate == TRUSTEE_KILL_SEND_PROCESS {
+					return
+				}
 			}
-
 		default:
 			if currentRate == TRUSTEE_RATE_ACTIVE {
 				roundId, _ = sendData(p, roundId)

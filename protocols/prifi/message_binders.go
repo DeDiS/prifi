@@ -42,3 +42,6 @@ func (p *PriFiSDAWrapper) Received_REL_TRU_TELL_CLIENTS_PKS_AND_EPH_PKS_AND_BASE
 func (p *PriFiSDAWrapper) Received_REL_TRU_TELL_TRANSCRIPT(msg Struct_REL_TRU_TELL_TRANSCRIPT) error {
 	return p.prifiProtocol.ReceivedMessage(msg.REL_TRU_TELL_TRANSCRIPT)
 }
+func (p *PriFiSDAWrapper) Received_REL_TRU_TELL_RATE_CHANGE(msg Struct_REL_TRU_TELL_RATE_CHANGE) error {
+	return p.prifiProtocol.ReceivedMessage(msg.REL_TRU_TELL_RATE_CHANGE)
+}

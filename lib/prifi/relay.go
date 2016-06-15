@@ -41,8 +41,13 @@ const INBETWEEN_CONFIG_SLEEP_TIME = 0 * time.Second
 const NEWCLIENT_CHECK_SLEEP_TIME = 10 * time.Millisecond
 const CLIENT_READ_TIMEOUT = 5 * time.Second
 const RELAY_FAILED_CONNECTION_WAIT_BEFORE_RETRY = 10 * time.Second
+
+// Sending Rate controls
+// Trustees stop sending when capacity <= lower limit
+// Trustees resume sending when capacity = lower limit + ratio*(max - lower limit) 
 const TRUSTEE_WINDOW_LOWER_LIMIT = 1
 const MAX_ALLOWED_TRUSTEE_CIPHERS_BUFFERED = 10
+const RESUME_SENDING_CAPACITY_RATIO = 0.9
 
 // possible state the trustees are in. This restrict the kind of messages they can receive at a given point
 const (
@@ -343,7 +348,7 @@ func (p *PriFiProtocol) Received_TRU_REL_DC_CIPHER(msg TRU_REL_DC_CIPHER) error 
 			p.relayState.bufferedTrusteeCiphers[msg.RoundId] = newKey
 		}
 
-		//Here is the control to regulate the trustees ciphers in case they should stop sending
+		//Here is the control to regulate the trustees ciphers
 		p.relayState.trusteeCipherTracker[msg.TrusteeId]++ 	//Increment the currently buffered ciphers for this trustee
 		currentCapacity := MAX_ALLOWED_TRUSTEE_CIPHERS_BUFFERED - p.relayState.trusteeCipherTracker[msg.TrusteeId] //Get our remaining allowed capacity
 
@@ -467,12 +472,14 @@ func (p *PriFiProtocol) sendDownstreamData() error {
 			p.relayState.currentDCNetRound.trusteeCipherCount++
 
 
-			//Here is the control to regulate the trustees ciphers incase they should continue sending
-			previousCapacity := MAX_ALLOWED_TRUSTEE_CIPHERS_BUFFERED - p.relayState.trusteeCipherTracker[trusteeId] //Calculate the previous capacity
 			p.relayState.trusteeCipherTracker[trusteeId]--
+			currentCapacity := MAX_ALLOWED_TRUSTEE_CIPHERS_BUFFERED - p.relayState.trusteeCipherTracker[trusteeId] //Calculate the current capacity
 
-			if(previousCapacity == TRUSTEE_WINDOW_LOWER_LIMIT) { //if the previous capacity was at the lower limit allowed
-				toSend := &REL_TRU_TELL_RATE_CHANGE{previousCapacity+1} 
+			thresholdFactor := RESUME_SENDING_CAPACITY_RATIO*(MAX_ALLOWED_TRUSTEE_CIPHERS_BUFFERED-TRUSTEE_WINDOW_LOWER_LIMIT)
+			threshHold := TRUSTEE_WINDOW_LOWER_LIMIT + int(thresholdFactor)
+
+			if(currentCapacity == threshHold) { //if the previous capacity was at the lower limit allowed
+				toSend := &REL_TRU_TELL_RATE_CHANGE{currentCapacity} 
 				err := p.messageSender.SendToTrustee(trusteeId, toSend) //send the trustee informing them of the current capacity that has free'd up
 				if err != nil {
 					e := "Could not send REL_TRU_TELL_RATE_CHANGE to " + strconv.Itoa(trusteeId) + "-th trustee for round " + strconv.Itoa(int(p.relayState.currentDCNetRound.currentRound)) + ", error is " + err.Error()
