@@ -141,7 +141,7 @@ func NewRelayState(nTrustees int, nClients int, upstreamCellSize int, downstream
 	params.Name = "Relay"
 	params.CellCoder = config.Factory()
 	params.clients = make([]NodeRepresentation, 0)
-	params.DataForClients = make(chan []byte)
+	params.DataForClients = make(chan []byte,1)
 	params.DataFromDCNet = make(chan []byte)
 	params.DataOutputEnabled = dataOutputEnabled
 	params.DownstreamCellSize = downstreamCellSize
@@ -388,7 +388,6 @@ func (p *PriFiProtocol) finalizeUpstreamData() error {
 			p.relayState.DataForClients <- upstreamPlaintext
 		}
 	}
-
 	if upstreamPlaintext == nil {
 		// empty upstream cell
 	}

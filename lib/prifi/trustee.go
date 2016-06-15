@@ -45,7 +45,7 @@ const (
 	TRUSTEE_RATE_STOPPED
 )
 
-const TRUSTEE_BASE_SLEEP_TIME = time.Second	//this is the base unit for how much time the trustee sleeps between ciphers to the relay
+const TRUSTEE_BASE_SLEEP_TIME = 500*time.Millisecond	//this is the base unit for how much time the trustee sleeps between ciphers to the relay
 
 //the mutable variable held by the client
 type TrusteeState struct {
