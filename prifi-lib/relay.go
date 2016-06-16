@@ -29,9 +29,9 @@ import (
 	"time"
 
 	"github.com/dedis/cothority/lib/dbg"
-	"github.com/dedis/cothority/lib/prifi/dcnet"
 	"github.com/dedis/crypto/abstract"
-	"github.com/lbarman/prifi/config"
+	"github.com/lbarman/prifi_dev/prifi-lib/config"
+	"github.com/lbarman/prifi_dev/prifi-lib/dcnet"
 )
 
 //Constants
@@ -41,13 +41,9 @@ const INBETWEEN_CONFIG_SLEEP_TIME = 0 * time.Second
 const NEWCLIENT_CHECK_SLEEP_TIME = 10 * time.Millisecond
 const CLIENT_READ_TIMEOUT = 5 * time.Second
 const RELAY_FAILED_CONNECTION_WAIT_BEFORE_RETRY = 10 * time.Second
-
-// Sending Rate controls
-// Trustees stop sending when capacity <= lower limit
-// Trustees resume sending when capacity = lower limit + ratio*(max - lower limit) 
-const TRUSTEE_WINDOW_LOWER_LIMIT = 1
+const TRUSTEE_WINDOW_LOWER_LIMIT = 1 // Trustees stop sending when capacity <= lower limit
 const MAX_ALLOWED_TRUSTEE_CIPHERS_BUFFERED = 10
-const RESUME_SENDING_CAPACITY_RATIO = 0.9
+const RESUME_SENDING_CAPACITY_RATIO = 0.9 // Trustees resume sending when capacity = lower limit + ratio*(max - lower limit)
 
 // possible state the trustees are in. This restrict the kind of messages they can receive at a given point
 const (
@@ -108,13 +104,14 @@ type RelayState struct {
 
 	bufferedTrusteeCiphers   map[int32]BufferedCipher
 	bufferedClientCiphers    map[int32]BufferedCipher
-	trusteeCipherTracker	 []int
+	trusteeCipherTracker     []int
 	CellCoder                dcnet.CellCoder
 	clients                  []NodeRepresentation
 	currentDCNetRound        DCNetRound
 	currentShuffleTranscript NeffShuffleState
 	currentState             int16
 	DataForClients           chan []byte //VPN / SOCKS should put data there !
+	PriorityDataForClients   chan []byte
 	DataFromDCNet            chan []byte //VPN / SOCKS should read data from there !
 	DataOutputEnabled        bool        //if FALSE, nothing will be written to DataFromDCNet
 	DownstreamCellSize       int
@@ -141,8 +138,9 @@ func NewRelayState(nTrustees int, nClients int, upstreamCellSize int, downstream
 	params.Name = "Relay"
 	params.CellCoder = config.Factory()
 	params.clients = make([]NodeRepresentation, 0)
-	params.DataForClients = make(chan []byte,1)
-	params.DataFromDCNet = make(chan []byte)
+	params.DataForClients = make(chan []byte, 10)
+	params.PriorityDataForClients = make(chan []byte, 10) //this is used for relay's control message (like latency-tests)
+	params.DataFromDCNet = make(chan []byte, 10)
 	params.DataOutputEnabled = dataOutputEnabled
 	params.DownstreamCellSize = downstreamCellSize
 	//params.MessageHistory =
@@ -154,8 +152,8 @@ func NewRelayState(nTrustees int, nClients int, upstreamCellSize int, downstream
 	params.UpstreamCellSize = upstreamCellSize
 	params.UseDummyDataDown = useDummyDataDown
 	params.UseUDP = useUDP
+	params.trusteeCipherTracker = make([]int, nTrustees)
 	params.WindowSize = windowSize
-	params.trusteeCipherTracker = make([]int,nTrustees) 
 
 	//prepare the crypto parameters
 	rand := config.CryptoSuite.Cipher([]byte(params.Name))
@@ -288,7 +286,7 @@ func (p *PriFiProtocol) Received_CLI_REL_UPSTREAM_DATA(msg CLI_REL_UPSTREAM_DATA
 			p.finalizeUpstreamData()
 
 			//sleep so it does not go too fast for debug
-			time.Sleep(1000 * time.Millisecond)
+			//time.Sleep(1000 * time.Millisecond)
 
 			//send the data down (to finalize this round)
 			p.sendDownstreamData()
@@ -331,7 +329,7 @@ func (p *PriFiProtocol) Received_TRU_REL_DC_CIPHER(msg TRU_REL_DC_CIPHER) error 
 			p.finalizeUpstreamData()
 
 			//sleep so it does not go too fast for debug
-			time.Sleep(1000 * time.Millisecond)
+			//time.Sleep(1000 * time.Millisecond)
 
 			//send the data down (to finalize this round)
 			p.sendDownstreamData()
@@ -348,12 +346,12 @@ func (p *PriFiProtocol) Received_TRU_REL_DC_CIPHER(msg TRU_REL_DC_CIPHER) error 
 			p.relayState.bufferedTrusteeCiphers[msg.RoundId] = newKey
 		}
 
-		//Here is the control to regulate the trustees ciphers
-		p.relayState.trusteeCipherTracker[msg.TrusteeId]++ 	//Increment the currently buffered ciphers for this trustee
+		//Here is the control to regulate the trustees ciphers in case they should stop sending
+		p.relayState.trusteeCipherTracker[msg.TrusteeId]++                                                         //Increment the currently buffered ciphers for this trustee
 		currentCapacity := MAX_ALLOWED_TRUSTEE_CIPHERS_BUFFERED - p.relayState.trusteeCipherTracker[msg.TrusteeId] //Get our remaining allowed capacity
 
-		if(currentCapacity <= TRUSTEE_WINDOW_LOWER_LIMIT) {	//Check if the capacity is lower then allowed
-			toSend := &REL_TRU_TELL_RATE_CHANGE{currentCapacity} 
+		if currentCapacity <= TRUSTEE_WINDOW_LOWER_LIMIT { //Check if the capacity is lower then allowed
+			toSend := &REL_TRU_TELL_RATE_CHANGE{currentCapacity}
 			err := p.messageSender.SendToTrustee(msg.TrusteeId, toSend) //send the trustee a message informing them of the capacity
 			if err != nil {
 				e := "Could not send REL_TRU_TELL_RATE_CHANGE to " + strconv.Itoa(msg.TrusteeId) + "-th trustee for round " + strconv.Itoa(int(p.relayState.currentDCNetRound.currentRound)) + ", error is " + err.Error()
@@ -385,9 +383,10 @@ func (p *PriFiProtocol) finalizeUpstreamData() error {
 		if pattern == 43690 { //1010101010101010
 			dbg.Lvl3("Relay : noticed a latency-test message, sending answer...")
 			//then, we simply have to send it down
-			p.relayState.DataForClients <- upstreamPlaintext
+			p.relayState.PriorityDataForClients <- upstreamPlaintext
 		}
 	}
+
 	if upstreamPlaintext == nil {
 		// empty upstream cell
 	}
@@ -417,14 +416,26 @@ func (p *PriFiProtocol) sendDownstreamData() error {
 	var downstreamCellContent []byte
 
 	select {
-
-	//either select data from the data we have to send, if any
-	case downstreamCellContent = <-p.relayState.DataForClients:
-		dbg.Lvl3("Relay : We have some real data for the clients. ")
+	case downstreamCellContent = <-p.relayState.PriorityDataForClients:
+		dbg.Lvl3("Relay : We have some priority data for the clients")
+		//TODO : maybe we can pack more than one message here ?
 
 	default:
-		downstreamCellContent = make([]byte, 1)
-		dbg.Lvl3("Relay : Sending 1bit down. ")
+
+	}
+
+	//only if we don't have priority data for clients
+	if downstreamCellContent == nil {
+		select {
+
+		//either select data from the data we have to send, if any
+		case downstreamCellContent = <-p.relayState.DataForClients:
+			dbg.Lvl3("Relay : We have some real data for the clients. ")
+
+		default:
+			downstreamCellContent = make([]byte, 1)
+			dbg.Lvl3("Relay : Sending 1bit down. ")
+		}
 	}
 
 	//if we want to use dummy data down, pad to the correct size
@@ -470,15 +481,14 @@ func (p *PriFiProtocol) sendDownstreamData() error {
 			p.relayState.CellCoder.DecodeTrustee(data)
 			p.relayState.currentDCNetRound.trusteeCipherCount++
 
-
+			//Here is the control to regulate the trustees ciphers incase they should continue sending
 			p.relayState.trusteeCipherTracker[trusteeId]--
 			currentCapacity := MAX_ALLOWED_TRUSTEE_CIPHERS_BUFFERED - p.relayState.trusteeCipherTracker[trusteeId] //Calculate the current capacity
-
-			thresholdFactor := RESUME_SENDING_CAPACITY_RATIO*(MAX_ALLOWED_TRUSTEE_CIPHERS_BUFFERED-TRUSTEE_WINDOW_LOWER_LIMIT)
+			thresholdFactor := RESUME_SENDING_CAPACITY_RATIO * (MAX_ALLOWED_TRUSTEE_CIPHERS_BUFFERED - TRUSTEE_WINDOW_LOWER_LIMIT)
 			threshHold := TRUSTEE_WINDOW_LOWER_LIMIT + int(thresholdFactor)
 
-			if(currentCapacity == threshHold) { //if the previous capacity was at the lower limit allowed
-				toSend := &REL_TRU_TELL_RATE_CHANGE{currentCapacity} 
+			if currentCapacity == threshHold { //if the previous capacity was at the lower limit allowed
+				toSend := &REL_TRU_TELL_RATE_CHANGE{currentCapacity}
 				err := p.messageSender.SendToTrustee(trusteeId, toSend) //send the trustee informing them of the current capacity that has free'd up
 				if err != nil {
 					e := "Could not send REL_TRU_TELL_RATE_CHANGE to " + strconv.Itoa(trusteeId) + "-th trustee for round " + strconv.Itoa(int(p.relayState.currentDCNetRound.currentRound)) + ", error is " + err.Error()
@@ -488,8 +498,8 @@ func (p *PriFiProtocol) sendDownstreamData() error {
 					dbg.Lvl3("Relay : sent REL_TRU_TELL_RATE_CHANGE to " + strconv.Itoa(trusteeId) + "-th trustee for round " + strconv.Itoa(int(p.relayState.currentDCNetRound.currentRound)))
 				}
 			}
-
 		}
+
 		delete(p.relayState.bufferedTrusteeCiphers, nextRound)
 	}
 	if _, ok := p.relayState.bufferedClientCiphers[nextRound]; ok {
@@ -499,6 +509,7 @@ func (p *PriFiProtocol) sendDownstreamData() error {
 			p.relayState.CellCoder.DecodeTrustee(data)
 			p.relayState.currentDCNetRound.clientCipherCount++
 		}
+
 		delete(p.relayState.bufferedClientCiphers, nextRound)
 	}
 

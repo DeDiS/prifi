@@ -24,10 +24,10 @@ import (
 	"time"
 
 	"github.com/dedis/cothority/lib/dbg"
-	"github.com/dedis/cothority/lib/prifi/config"
-	"github.com/dedis/cothority/lib/prifi/crypto"
-	"github.com/dedis/cothority/lib/prifi/dcnet"
 	"github.com/dedis/crypto/abstract"
+	"github.com/lbarman/prifi_dev/prifi-lib/config"
+	"github.com/lbarman/prifi_dev/prifi-lib/crypto"
+	"github.com/lbarman/prifi_dev/prifi-lib/dcnet"
 )
 
 const MaxUint uint32 = uint32(4294967295)

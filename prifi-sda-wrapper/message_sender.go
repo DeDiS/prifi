@@ -51,3 +51,8 @@ func (ms MessageSender) SendToRelay(msg interface{}) error {
 	dbg.Lvl5("Sending a message to relay ", " - ", msg)
 	return ms.tree.SendTo(ms.relay, msg)
 }
+
+func (ms MessageSender) BroadcastToAllClients(msg interface{}) error {
+	panic("Not implemented")
+	return nil
+}

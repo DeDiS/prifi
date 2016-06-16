@@ -24,6 +24,7 @@ import (
 //TRU_REL_SHUFFLE_SIG
 //TRU_REL_TELL_NEW_BASE_AND_EPH_PKS
 //TRU_REL_TELL_PK
+//REL_TRU_TELL_RATE_CHANGE
 
 //not used yet :
 //REL_CLI_DOWNSTREAM_DATA
@@ -97,6 +98,10 @@ type TRU_REL_SHUFFLE_SIG struct {
 	Sig       []byte
 }
 
+type REL_TRU_TELL_RATE_CHANGE struct {
+	WindowCapacity int
+}
+
 type TRU_REL_TELL_NEW_BASE_AND_EPH_PKS struct {
 	NewBase   abstract.Point
 	NewEphPks []abstract.Point
@@ -106,10 +111,6 @@ type TRU_REL_TELL_NEW_BASE_AND_EPH_PKS struct {
 type TRU_REL_TELL_PK struct {
 	TrusteeId int
 	Pk        abstract.Point
-}
-
-type REL_TRU_TELL_RATE_CHANGE struct {
-	WindowCapacity 	int
 }
 
 /**
@@ -152,8 +153,6 @@ func (prifi *PriFiProtocol) ReceivedMessage(msg interface{}) error {
 		err = prifi.Received_REL_TRU_TELL_CLIENTS_PKS_AND_EPH_PKS_AND_BASE(typedMsg)
 	case REL_TRU_TELL_TRANSCRIPT:
 		err = prifi.Received_REL_TRU_TELL_TRANSCRIPT(typedMsg)
-	case REL_TRU_TELL_RATE_CHANGE:
-		err = prifi.Received_REL_TRU_TELL_RATE_CHANGE(typedMsg)
 	case TRU_REL_DC_CIPHER:
 		err = prifi.Received_TRU_REL_DC_CIPHER(typedMsg)
 	case TRU_REL_SHUFFLE_SIG:
@@ -162,6 +161,8 @@ func (prifi *PriFiProtocol) ReceivedMessage(msg interface{}) error {
 		err = prifi.Received_TRU_REL_TELL_NEW_BASE_AND_EPH_PKS(typedMsg)
 	case TRU_REL_TELL_PK:
 		err = prifi.Received_TRU_REL_TELL_PK(typedMsg)
+	case REL_TRU_TELL_RATE_CHANGE:
+		err = prifi.Received_REL_TRU_TELL_RATE_CHANGE(typedMsg)
 	default:
 		panic("unrecognized message !")
 	}

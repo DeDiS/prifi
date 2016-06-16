@@ -1,10 +1,10 @@
 package config
 
 import (
-	"github.com/dedis/cothority/lib/prifi/dcnet"
 	"github.com/dedis/crypto/config"
 	"github.com/dedis/crypto/edwards"
 	"github.com/dedis/crypto/suites"
+	"github.com/lbarman/prifi_dev/prifi-lib/dcnet"
 )
 
 //used to make sure everybody has the same version of the software. must be updated manually

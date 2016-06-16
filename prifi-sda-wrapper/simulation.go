@@ -6,7 +6,7 @@ import (
 	"github.com/dedis/cothority/lib/monitor"
 	"github.com/dedis/cothority/lib/sda"
 
-	prifi_lib "github.com/dedis/cothority/lib/prifi"
+	prifi_lib "github.com/lbarman/prifi_dev/prifi-lib"
 )
 
 /*

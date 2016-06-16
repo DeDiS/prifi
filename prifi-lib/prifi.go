@@ -12,9 +12,8 @@ import (
  * Then, it runs the PriFi anonymous communication network among those entities.
  */
 
-
 //TODO: combine states into a single interface
-//the mutable variable held by this entity 
+//the mutable variable held by this entity
 type PriFiProtocol struct {
 	role          int16
 	messageSender MessageSender
@@ -48,6 +47,11 @@ type MessageSender interface {
 	 * This should deliver the message "msg" to the relay.
 	 */
 	SendToRelay(msg interface{}) error
+
+	/**
+	 * This should deliver the message "msg" to every client, possibly using broadcast
+	 */
+	BroadcastToAllClients(msg interface{}) error
 }
 
 /*

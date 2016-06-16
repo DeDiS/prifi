@@ -22,12 +22,12 @@ import (
 	"strconv"
 
 	"github.com/dedis/cothority/lib/dbg"
-	"github.com/dedis/cothority/lib/prifi/config"
-	"github.com/dedis/cothority/lib/prifi/crypto"
-	"github.com/dedis/cothority/lib/prifi/dcnet"
 	"github.com/dedis/crypto/abstract"
 	crypto_proof "github.com/dedis/crypto/proof"
 	"github.com/dedis/crypto/shuffle"
+	"github.com/lbarman/prifi_dev/prifi-lib/config"
+	"github.com/lbarman/prifi_dev/prifi-lib/crypto"
+	"github.com/lbarman/prifi_dev/prifi-lib/dcnet"
 )
 
 // possible state the trustees are in. This restrict the kind of messages they can receive at a given point
@@ -45,7 +45,7 @@ const (
 	TRUSTEE_RATE_STOPPED
 )
 
-const TRUSTEE_BASE_SLEEP_TIME = 500*time.Millisecond	//this is the base unit for how much time the trustee sleeps between ciphers to the relay
+const TRUSTEE_BASE_SLEEP_TIME = time.Second //this is the base unit for how much time the trustee sleeps between ciphers to the relay
 
 //the mutable variable held by the client
 type TrusteeState struct {
@@ -61,7 +61,7 @@ type TrusteeState struct {
 	PayloadLength       int
 	privateKey          abstract.Secret
 	PublicKey           abstract.Point
-	sendingRate         chan int16			
+	sendingRate         chan int16
 	sharedSecrets       []abstract.Point
 	TrusteeId           int
 }
@@ -155,28 +155,28 @@ func (p *PriFiProtocol) Send_TRU_REL_PK() error {
 	return nil
 }
 
-
-//TODO: if this is a class method, why do we need to pass the channel?
 /**
  * This method sends DC-net ciphers to the relay continuously once started. One can control the rate by sending flags to "rateChan".
  */
 func (p *PriFiProtocol) Send_TRU_REL_DC_CIPHER(rateChan chan int16) {
 
-	roundId := int32(0)
+	stop := false
 	currentRate := TRUSTEE_RATE_ACTIVE
+	roundId := int32(0)
 
-	for {
+	//TODO: use of "stop" variable is not essential
+	for !stop {
 		select {
 		case newRate := <-rateChan:
-			if(currentRate != newRate) {
+			if currentRate != newRate {
+				currentRate = newRate
 				dbg.Lvl2("Trustee " + strconv.Itoa(p.trusteeState.Id) + " : rate changed from " + strconv.Itoa(int(currentRate)) + " to " + strconv.Itoa(int(newRate)))
 
-				currentRate = newRate 	// Change Rate
-				
-				if currentRate == TRUSTEE_KILL_SEND_PROCESS {
-					return
+				if newRate == TRUSTEE_KILL_SEND_PROCESS {
+					stop = true
 				}
 			}
+
 		default:
 			if currentRate == TRUSTEE_RATE_ACTIVE {
 				roundId, _ = sendData(p, roundId)
@@ -184,13 +184,30 @@ func (p *PriFiProtocol) Send_TRU_REL_DC_CIPHER(rateChan chan int16) {
 
 			} else if currentRate == TRUSTEE_RATE_STOPPED {
 				time.Sleep(TRUSTEE_BASE_SLEEP_TIME)
+
 			} else {
 				dbg.Lvl2("Trustee " + strconv.Itoa(p.trusteeState.Id) + " : In unrecognized sending state")
 			}
 
 		}
 	}
+}
 
+/**
+ * This function Handles the request from the Relay when a cipher sending rate change is required
+ *
+ * Either the trustee must stop sending because the relay is at full capacity
+ * Or the trustee sends normally because the relay has emptied up enough capacity
+ */
+func (p *PriFiProtocol) Received_REL_TRU_TELL_RATE_CHANGE(msg REL_TRU_TELL_RATE_CHANGE) error {
+
+	if msg.WindowCapacity <= TRUSTEE_WINDOW_LOWER_LIMIT { //Relay is at almost full capacity stop sending
+		p.trusteeState.sendingRate <- TRUSTEE_RATE_STOPPED
+	} else { //Relay is operating at normal capacity to continue sending
+		p.trusteeState.sendingRate <- TRUSTEE_RATE_ACTIVE
+	}
+
+	return nil
 }
 
 /**
@@ -437,24 +454,6 @@ func (p *PriFiProtocol) Received_REL_TRU_TELL_TRANSCRIPT(msg REL_TRU_TELL_TRANSC
 
 	//everything is ready, we start sending
 	go p.Send_TRU_REL_DC_CIPHER(p.trusteeState.sendingRate)
-
-	return nil
-}
-
-
-/**
- * This function Handles the request from the Relay when a cipher sending rate change is required
- * 
- * Either the trustee must stop sending because the relay is at full capacity
- * Or the trustee sends normally because the relay has emptied up enough capacity
- */
-func (p *PriFiProtocol) Received_REL_TRU_TELL_RATE_CHANGE(msg REL_TRU_TELL_RATE_CHANGE) error {
-
-	if(msg.WindowCapacity <= TRUSTEE_WINDOW_LOWER_LIMIT) { //Relay is at almost full capacity stop sending
-		p.trusteeState.sendingRate <- TRUSTEE_RATE_STOPPED
-	} else { 	//Relay is operating at normal capacity to continue sending
-		p.trusteeState.sendingRate <- TRUSTEE_RATE_ACTIVE
-	}
 
 	return nil
 }
