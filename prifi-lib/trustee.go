@@ -10,6 +10,7 @@ package prifi
  * - ALL_ALL_PARAMETERS - (specialized into ALL_TRU_PARAMETERS) - used to initialize the relay over the network / overwrite its configuration
  * - REL_TRU_TELL_CLIENTS_PKS_AND_EPH_PKS_AND_BASE - the client's identities (and ephemeral ones), and a base. We react by Neff-Shuffling and sending the result
  * - REL_TRU_TELL_TRANSCRIPT - the Neff-Shuffle's results. We perform some checks, sign the last one, send it to the relay, and follow by continously sending ciphers.
+ * - REL_TRU_TELL_RATE_CHANGE - Received when the relay requests a sending rate change, the message contains the necessary information needed to perform this change
  *
  * TODO : debug the actual shuffle (the current code is a placeholder that does not shuffle, but takes the same time)
  */
@@ -183,8 +184,8 @@ func (p *PriFiProtocol) Send_TRU_REL_DC_CIPHER(rateChan chan int16) {
 		select {
 		case newRate := <-rateChan:
 			if currentRate != newRate {
-				currentRate = newRate
 				dbg.Lvl2("Trustee " + strconv.Itoa(p.trusteeState.Id) + " : rate changed from " + strconv.Itoa(int(currentRate)) + " to " + strconv.Itoa(int(newRate)))
+				currentRate = newRate
 			}
 
 			if newRate == TRUSTEE_KILL_SEND_PROCESS {

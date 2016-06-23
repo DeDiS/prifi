@@ -502,7 +502,7 @@ func (p *PriFiProtocol) Received_REL_CLI_TELL_EPH_PKS_AND_TRUSTEES_SIG(msg REL_C
 	myPrivKey := p.clientState.ephemeralPrivateKey
 	ephPubInBaseG := config.CryptoSuite.Point().Mul(G, myPrivKey)
 	mySlot := -1
-
+	
 	for j := 0; j < len(ephPubKeys); j++ {
 		if ephPubKeys[j].Equal(ephPubInBaseG) {
 			mySlot = j

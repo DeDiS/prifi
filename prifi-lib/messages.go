@@ -16,24 +16,25 @@ import (
  * Below : Message-Switch that calls the correct function when one of this message arrives.
  */
 
-//ALL_ALL_SHUTDOWN
-//ALL_ALL_PARAMETERS
-//CLI_REL_TELL_PK_AND_EPH_PK
-//CLI_REL_UPSTREAM_DATA
-//REL_CLI_DOWNSTREAM_DATA
-//REL_CLI_TELL_EPH_PKS_AND_TRUSTEES_SIG
-//REL_CLI_TELL_TRUSTEES_PK
-//REL_TRU_TELL_CLIENTS_PKS_AND_EPH_PKS_AND_BASE
-//REL_TRU_TELL_TRANSCRIPT
-//TRU_REL_DC_CIPHER
-//TRU_REL_SHUFFLE_SIG
-//TRU_REL_TELL_NEW_BASE_AND_EPH_PKS
-//TRU_REL_TELL_PK
-//REL_TRU_TELL_RATE_CHANGE
+// ALL_ALL_SHUTDOWN
+// ALL_ALL_PARAMETERS
+// CLI_REL_TELL_PK_AND_EPH_PK
+// CLI_REL_UPSTREAM_DATA
+// REL_CLI_DOWNSTREAM_DATA
+// REL_CLI_TELL_EPH_PKS_AND_TRUSTEES_SIG
+// REL_CLI_TELL_TRUSTEES_PK
+// REL_TRU_TELL_CLIENTS_PKS_AND_EPH_PKS_AND_BASE
+// REL_TRU_TELL_TRANSCRIPT
+// TRU_REL_DC_CIPHER
+// TRU_REL_SHUFFLE_SIG
+// REL_TRU_TELL_RATE_CHANGE
+// TRU_REL_TELL_NEW_BASE_AND_EPH_PKS
+// TRU_REL_TELL_PK
+// REL_TRU_TELL_RATE_CHANGE
 
 //not used yet :
-//REL_CLI_DOWNSTREAM_DATA
-//CLI_REL_DOWNSTREAM_NACK
+// REL_CLI_DOWNSTREAM_DATA
+// CLI_REL_DOWNSTREAM_NACK
 
 type ALL_ALL_SHUTDOWN struct {
 }
@@ -213,7 +214,7 @@ func (prifi *PriFiProtocol) ReceivedMessage(msg interface{}) error {
 	case ALL_ALL_PARAMETERS:
 		switch prifi.role {
 		case PRIFI_ROLE_RELAY:
-			err = prifi.Received_ALL_REL_PARAMETERS(typedMsg)
+			go prifi.Received_ALL_REL_PARAMETERS(typedMsg)
 		case PRIFI_ROLE_CLIENT:
 			err = prifi.Received_ALL_CLI_PARAMETERS(typedMsg)
 		case PRIFI_ROLE_TRUSTEE:
@@ -224,7 +225,7 @@ func (prifi *PriFiProtocol) ReceivedMessage(msg interface{}) error {
 	case ALL_ALL_SHUTDOWN:
 		switch prifi.role {
 		case PRIFI_ROLE_RELAY:
-			err = prifi.Received_ALL_REL_SHUTDOWN(typedMsg)
+			go prifi.Received_ALL_REL_SHUTDOWN(typedMsg)
 		case PRIFI_ROLE_CLIENT:
 			err = prifi.Received_ALL_CLI_SHUTDOWN(typedMsg)
 		case PRIFI_ROLE_TRUSTEE:
@@ -233,9 +234,9 @@ func (prifi *PriFiProtocol) ReceivedMessage(msg interface{}) error {
 			panic("Received SHUTDOWN, but we have no role yet !")
 		}
 	case CLI_REL_TELL_PK_AND_EPH_PK:
-		err = prifi.Received_CLI_REL_TELL_PK_AND_EPH_PK(typedMsg)
+		go prifi.Received_CLI_REL_TELL_PK_AND_EPH_PK(typedMsg)
 	case CLI_REL_UPSTREAM_DATA:
-		err = prifi.Received_CLI_REL_UPSTREAM_DATA(typedMsg)
+		go prifi.Received_CLI_REL_UPSTREAM_DATA(typedMsg)
 	case REL_CLI_DOWNSTREAM_DATA:
 		err = prifi.Received_REL_CLI_DOWNSTREAM_DATA(typedMsg)
 	/*
@@ -253,13 +254,13 @@ func (prifi *PriFiProtocol) ReceivedMessage(msg interface{}) error {
 	case REL_TRU_TELL_TRANSCRIPT:
 		err = prifi.Received_REL_TRU_TELL_TRANSCRIPT(typedMsg)
 	case TRU_REL_DC_CIPHER:
-		err = prifi.Received_TRU_REL_DC_CIPHER(typedMsg)
+		go prifi.Received_TRU_REL_DC_CIPHER(typedMsg)
 	case TRU_REL_SHUFFLE_SIG:
-		err = prifi.Received_TRU_REL_SHUFFLE_SIG(typedMsg)
+		go prifi.Received_TRU_REL_SHUFFLE_SIG(typedMsg)
 	case TRU_REL_TELL_NEW_BASE_AND_EPH_PKS:
-		err = prifi.Received_TRU_REL_TELL_NEW_BASE_AND_EPH_PKS(typedMsg)
+		go prifi.Received_TRU_REL_TELL_NEW_BASE_AND_EPH_PKS(typedMsg)
 	case TRU_REL_TELL_PK:
-		err = prifi.Received_TRU_REL_TELL_PK(typedMsg)
+		go prifi.Received_TRU_REL_TELL_PK(typedMsg)
 	case REL_TRU_TELL_RATE_CHANGE:
 		err = prifi.Received_REL_TRU_TELL_RATE_CHANGE(typedMsg)
 	default:
