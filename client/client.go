@@ -201,6 +201,8 @@ func StartClient(nodeConfig config.NodeConfig, relayHostAddr string, expectedNum
 
 								stats.AddLatency(diff)
 							}
+						} else {
+							prifilog.Println(prifilog.SEVERE_ERROR, "Unexpected downstream message received. Something is wrong...")
 						}
 					} else {
 						//data for SOCKS proxy, just hand it over to the dedicated thread
