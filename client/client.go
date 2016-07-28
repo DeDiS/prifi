@@ -106,14 +106,17 @@ payloadLength int, useSocksProxy bool, latencyTest bool, useUDP bool) {
 		}
 		clientState.NodeState.NumClients = params.nClients
 
-		//Parse the trustee's public keys, generate the shared secrets
+		// Parse trustee's public keys
 		clientState.NodeState.NumTrustees = len(params.trusteesPublicKeys)
 		clientState.TrusteePublicKey = make([]abstract.Point, clientState.NodeState.NumTrustees)
-		clientState.NodeState.SharedSecrets = make([]abstract.Point, clientState.NodeState.NumTrustees)
 
+		// Create a shared secret with every trustee
+		clientState.NodeState.SharedSecrets = make([]abstract.Cipher, len(params.trusteesPublicKeys))
 		for i := 0; i < len(params.trusteesPublicKeys); i++ {
 			clientState.TrusteePublicKey[i] = params.trusteesPublicKeys[i]
-			clientState.NodeState.SharedSecrets[i] = config.CryptoSuite.Point().Mul(params.trusteesPublicKeys[i], clientState.NodeState.PrivateKey)
+			sharedPoint := config.CryptoSuite.Point().Mul(params.trusteesPublicKeys[i], clientState.NodeState.PrivateKey)
+			sharedBytes, _ := sharedPoint.MarshalBinary()
+			clientState.NodeState.SharedSecrets[i] = config.CryptoSuite.Cipher(sharedBytes)
 		}
 
 		//check that we got all keys
@@ -125,6 +128,9 @@ payloadLength int, useSocksProxy bool, latencyTest bool, useUDP bool) {
 				continue //redo everything
 			}
 		}
+
+		// Initialize cell coder
+		clientState.CellCoder.ClientSetup(config.CryptoSuite, clientState.NodeState.SharedSecrets)
 
 		//TODO: Shuffle to detect if we own the slot
 		myRound, err := roundScheduling(relayTCPConn, clientState)

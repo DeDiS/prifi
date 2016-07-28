@@ -1,7 +1,6 @@
 package node
 
 import (
-	"github.com/dedis/crypto/abstract"
 	"github.com/lbarman/prifi/config"
 )
 
@@ -20,7 +19,5 @@ func InitNodeState(nodeConfig config.NodeConfig, nClients int, nTrustees int, ce
 
 	nodeState.CellSize = cellSize
 	nodeState.CellCoder = config.Factory()
-
-	nodeState.SharedSecrets = make([]abstract.Point, nClients)
 	return *nodeState
 }
