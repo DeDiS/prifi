@@ -134,6 +134,9 @@ func handleConnection(nodeConfig config.NodeConfig, conn net.Conn, closedConnect
 		fmt.Println("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
 	}
 
+	// Initialize cell coder
+	trusteeState.NodeState.CellCoder.TrusteeSetup(config.CryptoSuite, trusteeState.NodeState.SharedSecrets)
+
 	prifilog.SimpleStringDump(prifilog.INFORMATION, trusteeState.NodeState.Name + "; All crypto stuff exchanged ! ")
 	//parse the ephemeral keys
 	base, ephPublicKeys, err := prifinet.ParseBaseAndPublicKeysFromConn(conn)
