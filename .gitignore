@@ -20,3 +20,11 @@ dissent/client
 dissent/client.exe
 *.exe
 .idea*
+.DS_Store
+debug/
+out/
+prifi
+prifi-relay
+prifi-client
+prifi-trustee
+*.iml
