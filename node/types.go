@@ -7,23 +7,23 @@ import (
 )
 
 type NodeState struct {
-	Id   int
-	Name string
+	Id                  int
+	Name                string
 
-	PublicKey  abstract.Point
-	PrivateKey abstract.Scalar
+	PublicKey           abstract.Point
+	PrivateKey          abstract.Scalar
 
 	EphemeralPublicKey  abstract.Point
 	EphemeralPrivateKey abstract.Scalar
 
-	NumClients  int
-	NumTrustees int
+	NumClients          int
+	NumTrustees         int
 
-	CellSize      int // Payload length
-	SharedSecrets []abstract.Cipher
+	CellSize            int // Payload length
+	SharedSecrets       []abstract.Cipher
 
-	CellCoder      dcnet.CellCoder
-	MessageHistory abstract.Cipher
+	CellCoder           dcnet.CellCoder
+	DownstreamHistory   abstract.Cipher
 }
 
 func (nodeState *NodeState) GenerateEphemeralKeys() {

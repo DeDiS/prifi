@@ -213,7 +213,13 @@ func StartClient(nodeConfig config.NodeConfig, relayHostAddr string, expectedNum
 					stats.AddDownstreamCell(int64(len(data.Data)))
 				}
 
-				// TODO Should account the downstream cell in the history
+				// Update the downstream history
+				s := config.CryptoSuite.Scalar().Pick(clientState.DownstreamHistory)
+				histBytes,_ := s.MarshalBinary()
+				newHist := make([]byte, len(histBytes) + len(data.Data))
+				copy(newHist[:len(histBytes)], histBytes)
+				copy(newHist[len(histBytes):], data.Data)
+				clientState.DownstreamHistory = config.CryptoSuite.Cipher(newHist)
 
 				// Produce and ship the next upstream slice
 				nBytes := writeNextUpstreamSlice(isMySlot, dataForRelayBuffer, relayTCPConn, clientState)
@@ -330,9 +336,9 @@ func writeNextUpstreamSlice(isMySlot bool, dataForRelayBuffer chan []byte, relay
 		}
 	}
 
-	//produce the next upstream cell
+	// Produce the next upstream cell
 	upstreamSlice := clientState.NodeState.CellCoder.ClientEncode(nextUpstreamBytes,
-		clientState.NodeState.CellSize, clientState.NodeState.MessageHistory)
+		clientState.NodeState.CellSize, clientState.NodeState.DownstreamHistory)
 
 	if len(upstreamSlice) != clientState.UsablePayloadLength {
 		prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, "Client "+strconv.Itoa(clientState.NodeState.Id)+"; Client slice wrong size, expected "+strconv.Itoa(clientState.UsablePayloadLength)+", but got "+strconv.Itoa(len(upstreamSlice)))

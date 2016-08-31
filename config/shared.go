@@ -15,4 +15,5 @@ const NUM_RETRY_CONNECT = 3
 var CryptoSuite = nist.NewAES128SHA256P256()
 
 // Sets the factory for the dcnet's cell encoder/decoder
-var Factory = dcnet.SimpleCoderFactory
+//var Factory = dcnet.SimpleCoderFactory
+var Factory = dcnet.OwnedCoderFactory
