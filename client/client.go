@@ -32,7 +32,6 @@ func StartClient(nodeConfig config.NodeConfig, relayHostAddr string, expectedNum
 	clientState.LatencyTest = latencyTest
 	clientState.UseUDP = useUDP
 	clientState.TrusteePublicKey = make([]abstract.Point, nTrustees)
-	clientState.UsablePayloadLength = clientState.NodeState.CellCoder.ClientCellSize(payloadLength)
 
 	stats := prifilog.EmptyStatistics(-1) //no limit
 
@@ -131,6 +130,7 @@ func StartClient(nodeConfig config.NodeConfig, relayHostAddr string, expectedNum
 
 		// Initialize cell coder
 		clientState.CellCoder.ClientSetup(config.CryptoSuite, clientState.NodeState.SharedSecrets)
+		clientState.UsablePayloadLength = clientState.NodeState.CellCoder.ClientCellSize(payloadLength)
 
 		//TODO: Shuffle to detect if we own the slot
 		myRound, err := roundScheduling(relayTCPConn, clientState)
