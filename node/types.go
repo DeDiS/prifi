@@ -20,7 +20,7 @@ type NodeState struct {
 	NumTrustees int
 
 	CellSize      int // Payload length
-	SharedSecrets []abstract.Point
+	SharedSecrets []abstract.Cipher
 
 	CellCoder      dcnet.CellCoder
 	MessageHistory abstract.Cipher

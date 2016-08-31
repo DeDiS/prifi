@@ -105,9 +105,13 @@ func handleConnection(nodeConfig config.NodeConfig, conn net.Conn, closedConnect
 		return
 	}
 
+	// Create a shared secret with every client
+	trusteeState.NodeState.SharedSecrets = make([]abstract.Cipher, len(clientsPublicKeys))
 	for i := 0; i < len(clientsPublicKeys); i++ {
 		trusteeState.ClientPublicKeys[i] = clientsPublicKeys[i]
-		trusteeState.NodeState.SharedSecrets[i] = config.CryptoSuite.Point().Mul(clientsPublicKeys[i], trusteeState.NodeState.PrivateKey)
+		sharedPoint := config.CryptoSuite.Point().Mul(clientsPublicKeys[i], trusteeState.NodeState.PrivateKey)
+		sharedBytes, _ := sharedPoint.MarshalBinary()
+		trusteeState.NodeState.SharedSecrets[i] = config.CryptoSuite.Cipher(sharedBytes)
 	}
 
 	// Check that we got all keys
@@ -123,12 +127,15 @@ func handleConnection(nodeConfig config.NodeConfig, conn net.Conn, closedConnect
 		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 		fmt.Println("            Client", i)
 		d1, _ := trusteeState.ClientPublicKeys[i].MarshalBinary()
-		d2, _ := trusteeState.NodeState.SharedSecrets[i].MarshalBinary()
+		//d2, _ := trusteeState.NodeState.SharedSecrets[i].MarshalBinary()
 		fmt.Println(hex.Dump(d1))
-		fmt.Println("+++")
-		fmt.Println(hex.Dump(d2))
+		//fmt.Println("+++")
+		//fmt.Println(hex.Dump(d2))
 		fmt.Println("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
 	}
+
+	// Initialize cell coder
+	trusteeState.NodeState.CellCoder.TrusteeSetup(config.CryptoSuite, trusteeState.NodeState.SharedSecrets)
 
 	prifilog.SimpleStringDump(prifilog.INFORMATION, trusteeState.NodeState.Name + "; All crypto stuff exchanged ! ")
 	//parse the ephemeral keys
