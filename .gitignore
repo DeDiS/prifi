@@ -23,3 +23,8 @@ dissent/client.exe
 .DS_Store
 debug/
 out/
+prifi
+prifi-relay
+prifi-client
+prifi-trustee
+*.iml
