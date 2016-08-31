@@ -20,3 +20,6 @@ dissent/client
 dissent/client.exe
 *.exe
 .idea*
+.DS_Store
+debug/
+out/
