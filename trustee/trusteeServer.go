@@ -3,8 +3,6 @@ package trustee
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
-	"fmt"
 	"io"
 	"net"
 	"strconv"
@@ -101,55 +99,63 @@ func handleConnection(nodeConfig config.NodeConfig, conn net.Conn, closedConnect
 	clientsPublicKeys, err := prifinet.UnMarshalPublicKeyArrayFromConnection(conn, config.CryptoSuite)
 
 	if err != nil {
-		prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, trusteeState.NodeState.Name + "; Error reading public keys "+err.Error())
+		prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, trusteeState.Name + "; Error reading public keys "+err.Error())
 		return
 	}
 
 	// Create a shared secret with every client
-	trusteeState.NodeState.SharedSecrets = make([]abstract.Cipher, len(clientsPublicKeys))
+	trusteeState.SharedSecrets = make([]abstract.Cipher, len(clientsPublicKeys))
 	for i := 0; i < len(clientsPublicKeys); i++ {
 		trusteeState.ClientPublicKeys[i] = clientsPublicKeys[i]
-		sharedPoint := config.CryptoSuite.Point().Mul(clientsPublicKeys[i], trusteeState.NodeState.PrivateKey)
+		sharedPoint := config.CryptoSuite.Point().Mul(clientsPublicKeys[i], trusteeState.PrivateKey)
 		sharedBytes, _ := sharedPoint.MarshalBinary()
-		trusteeState.NodeState.SharedSecrets[i] = config.CryptoSuite.Cipher(sharedBytes)
+		trusteeState.SharedSecrets[i] = config.CryptoSuite.Cipher(sharedBytes)
 	}
 
-	// Check that we got all keys
+	// Check that we got all client public keys
 	for i := 0; i < nClients; i++ {
 		if trusteeState.ClientPublicKeys[i] == nil {
-			prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, trusteeState.NodeState.Name + "; Didn't get public keys from client "+strconv.Itoa(i))
+			prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, trusteeState.Name + "; Didn't get public keys from client "+strconv.Itoa(i))
 			return
 		}
 	}
 
-	//print all shared secrets
-	for i := 0; i < nClients; i++ {
-		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-		fmt.Println("            Client", i)
-		d1, _ := trusteeState.ClientPublicKeys[i].MarshalBinary()
-		//d2, _ := trusteeState.NodeState.SharedSecrets[i].MarshalBinary()
-		fmt.Println(hex.Dump(d1))
-		//fmt.Println("+++")
-		//fmt.Println(hex.Dump(d2))
-		fmt.Println("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-	}
-
-	// Initialize cell coder
-	trusteeState.NodeState.CellCoder.TrusteeSetup(config.CryptoSuite, trusteeState.NodeState.SharedSecrets)
-
-	prifilog.SimpleStringDump(prifilog.INFORMATION, trusteeState.NodeState.Name + "; All crypto stuff exchanged ! ")
-	//parse the ephemeral keys
+	// Parse the ephemeral keys
+	prifilog.SimpleStringDump(prifilog.INFORMATION, trusteeState.Name + "; All crypto stuff exchanged ! ")
 	base, ephPublicKeys, err := prifinet.ParseBaseAndPublicKeysFromConn(conn)
 
 	if err != nil {
-		prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, trusteeState.NodeState.Name + "; Error parsing ephemeral keys, quitting. "+err.Error())
+		prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, trusteeState.Name + "; Error parsing ephemeral keys, quitting. "+err.Error())
 		return
 	}
 
-	//do the round-shuffle
+	// Perform round shuffling
+	roundShuffling(trusteeState, conn, base, ephPublicKeys)
 
-	rand := config.CryptoSuite.Cipher([]byte(trusteeState.NodeState.Name))
-	H := trusteeState.NodeState.PublicKey
+	// Initialize the cell coder
+	vkeyBytes := trusteeState.CellCoder.TrusteeSetup(config.CryptoSuite, trusteeState.SharedSecrets)
+
+	// Send my composite verifable shared secret to the relay
+	if err := prifinet.WriteMessage(conn, vkeyBytes); err != nil {
+		prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, trusteeState.Name + "Cannot write to the relay. " + err.Error())
+	}
+
+	// Start the main message loop
+	startMessageLoop(trusteeState, closedConnections)
+
+	prifilog.SimpleStringDump(prifilog.NOTIFICATION, trusteeState.Name + "; Shutting down.")
+	conn.Close()
+}
+
+func roundShuffling(trusteeState *TrusteeState, conn net.Conn,
+	base abstract.Point, ephPublicKeys []abstract.Point) {
+
+	var err error
+	nClients := trusteeState.NumClients
+	nTrustees := trusteeState.NumTrustees
+
+	rand := config.CryptoSuite.Cipher([]byte(trusteeState.Name))
+	H := trusteeState.PublicKey
 	X := ephPublicKeys
 	Y := X
 
@@ -167,16 +173,16 @@ func handleConnection(nodeConfig config.NodeConfig, conn net.Conn, closedConnect
 	ephPublicKeys2 := ephPublicKeys
 	proof := make([]byte, 50)
 
-	//Send back the shuffle
+	// Send back the shuffle
 	prifinet.WriteBasePublicKeysAndProofToConn(conn, base2, ephPublicKeys2, proof)
-	prifilog.SimpleStringDump(prifilog.INFORMATION, trusteeState.NodeState.Name + "; Shuffling done, wrote back to the relay ")
+	prifilog.SimpleStringDump(prifilog.INFORMATION, trusteeState.Name + "; Shuffling done, wrote back to the relay ")
 
-	//we wait, verify, and sign the transcript
-	prifilog.SimpleStringDump(prifilog.INFORMATION, trusteeState.NodeState.Name + "; Parsing the transcript ...")
+	// Wait, verify, and sign the transcript
+	prifilog.SimpleStringDump(prifilog.INFORMATION, trusteeState.Name + "; Parsing the transcript ...")
 
 	G_s, ephPublicKeys_s, proof_s, err := prifinet.ParseTranscript(conn, nClients, nTrustees)
 
-	prifilog.SimpleStringDump(prifilog.INFORMATION, trusteeState.NodeState.Name + "; Verifying the transcript... ")
+	prifilog.SimpleStringDump(prifilog.INFORMATION, trusteeState.Name + "; Verifying the transcript... ")
 
 	//Todo : verify each individual permutations
 	for j := 0; j < nTrustees; j++ {
@@ -199,21 +205,21 @@ func handleConnection(nodeConfig config.NodeConfig, conn net.Conn, closedConnect
 		verify = true
 
 		if !verify {
-			prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, trusteeState.NodeState.Name + "; Transcript invalid for trustee "+strconv.Itoa(j)+". Aborting.")
+			prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, trusteeState.Name + "; Transcript invalid for trustee "+strconv.Itoa(j)+". Aborting.")
 			return
 		}
 	}
 
-	//we verify that our shuffle was included
+	// Verify that my shuffle was included
 	ownPermutationFound := false
 	for j := 0; j < nTrustees; j++ {
 
 		if G_s[j].Equal(base2) && bytes.Equal(proof, proof_s[j]) {
-			prifilog.SimpleStringDump(prifilog.INFORMATION, trusteeState.NodeState.Name + "; Find in transcript : Found indice "+strconv.Itoa(j)+" that seems to match, verifing all the keys...")
+			prifilog.SimpleStringDump(prifilog.INFORMATION, trusteeState.Name + "; Find in transcript : Found indice "+strconv.Itoa(j)+" that seems to match, verifing all the keys...")
 			allKeyEqual := true
 			for k := 0; k < nClients; k++ {
 				if !ephPublicKeys2[k].Equal(ephPublicKeys_s[j][k]) {
-					prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, trusteeState.NodeState.Name + "; Transcript invalid for trustee "+strconv.Itoa(j)+". Aborting.")
+					prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, trusteeState.Name + "; Transcript invalid for trustee "+strconv.Itoa(j)+". Aborting.")
 					allKeyEqual = false
 					break
 				}
@@ -226,14 +232,14 @@ func handleConnection(nodeConfig config.NodeConfig, conn net.Conn, closedConnect
 	}
 
 	if !ownPermutationFound {
-		prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, trusteeState.NodeState.Name + "; Can't find own transaction. Aborting.")
+		prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, trusteeState.Name + "; Can't find own transaction. Aborting.")
 		return
 	}
 
 	M := make([]byte, 0)
 	G_s_j_bytes, err := G_s[nTrustees-1].MarshalBinary()
 	if err != nil {
-		prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, trusteeState.NodeState.Name + "; Can't marshall base, "+err.Error())
+		prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, trusteeState.Name + "; Can't marshall base, "+err.Error())
 		return
 	}
 	M = append(M, G_s_j_bytes...)
@@ -241,15 +247,15 @@ func handleConnection(nodeConfig config.NodeConfig, conn net.Conn, closedConnect
 	for j := 0; j < nClients; j++ {
 		pkBytes, err := ephPublicKeys_s[nTrustees-1][j].MarshalBinary()
 		if err != nil {
-			prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, trusteeState.NodeState.Name + "; Can't marshall public key, "+err.Error())
+			prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, trusteeState.Name + "; Can't marshall public key, "+err.Error())
 			return
 		}
 		M = append(M, pkBytes...)
 	}
 
-	sig := crypto.SchnorrSign(config.CryptoSuite, rand, M, trusteeState.NodeState.PrivateKey)
+	sig := crypto.SchnorrSign(config.CryptoSuite, rand, M, trusteeState.PrivateKey)
 
-	prifilog.SimpleStringDump(prifilog.INFORMATION, trusteeState.NodeState.Name + "; Sending signature")
+	prifilog.SimpleStringDump(prifilog.INFORMATION, trusteeState.Name + "; Sending signature")
 
 	signatureMsg := make([]byte, 0)
 	signatureMsg = append(signatureMsg, prifinet.IntToBA(len(sig))...)
@@ -257,25 +263,19 @@ func handleConnection(nodeConfig config.NodeConfig, conn net.Conn, closedConnect
 
 	err2 := prifinet.WriteMessage(conn, signatureMsg)
 	if err2 != nil {
-		prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, trusteeState.NodeState.Name + "; Can't send signature, "+err2.Error())
+		prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, trusteeState.Name + "; Can't send signature, "+err2.Error())
 		return
 	}
 
-	prifilog.SimpleStringDump(prifilog.INFORMATION, trusteeState.NodeState.Name + "; Signature sent")
-
-	//start the handler for this round configuration
-	startTrusteeSlave(trusteeState, closedConnections)
-
-	prifilog.SimpleStringDump(prifilog.NOTIFICATION, trusteeState.NodeState.Name + "; Shutting down.")
-	conn.Close()
+	prifilog.SimpleStringDump(prifilog.INFORMATION, trusteeState.Name + "; Signature sent")
 }
 
-func startTrusteeSlave(state *TrusteeState, closedConnections chan int) {
+func startMessageLoop(state *TrusteeState, closedConnections chan int) {
 
 	incomingStream := make(chan []byte)
 	//go trusteeConnRead(state, incomingStream, closedConnections)
 
-	// Just generate ciphertext cells and stream them to the server.
+	// Just generate ciphertext cells and stream them to the relay
 	exit := false
 	i := 0
 	for !exit {
@@ -284,34 +284,29 @@ func startTrusteeSlave(state *TrusteeState, closedConnections chan int) {
 			prifilog.Printf(prifilog.INFORMATION, "Received byte ! ", readByte)
 
 		case connClosed := <-closedConnections:
-			if connClosed == state.NodeState.Id {
-				prifilog.SimpleStringDump(prifilog.INFORMATION, "Trustee "+strconv.Itoa(state.NodeState.Id)+"; Stopping handler...")
+			if connClosed == state.Id {
+				prifilog.SimpleStringDump(prifilog.INFORMATION, "Trustee "+strconv.Itoa(state.Id)+"; Stopping handler...")
 				return
 			}
 
 		default:
 			// Produce a cell worth of trustee ciphertext
-			tslice := state.NodeState.CellCoder.TrusteeEncode(state.NodeState.CellSize)
+			tslice := state.CellCoder.TrusteeEncode(state.CellSize)
 
 			// Send it to the relay
-			//println("trustee slice")
-			//println(hex.Dump(tslice))
 			err := prifinet.WriteMessage(state.activeConnection, tslice)
 
 			i += 1
 
 			if i%1000000 == 0 {
-				prifilog.SimpleStringDump(prifilog.NOTIFICATION, "Trustee "+strconv.Itoa(state.NodeState.Id)+"; sent up to slice "+strconv.Itoa(i)+".")
+				prifilog.SimpleStringDump(prifilog.NOTIFICATION, "Trustee "+strconv.Itoa(state.Id)+"; sent up to slice "+strconv.Itoa(i)+".")
 			} else if i%100000 == 0 {
-				prifilog.SimpleStringDump(prifilog.INFORMATION, "Trustee "+strconv.Itoa(state.NodeState.Id)+"; sent up to slice "+strconv.Itoa(i)+".")
+				prifilog.SimpleStringDump(prifilog.INFORMATION, "Trustee "+strconv.Itoa(state.Id)+"; sent up to slice "+strconv.Itoa(i)+".")
 			}
 			if err != nil {
-				//fmt.Println("can't write to socket: " + err.Error())
-				//fmt.Println("\nShutting down handler", state.TrusteeId, "of conn", conn.RemoteAddr())
-				prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, "Trustee "+strconv.Itoa(state.NodeState.Id)+"; Write error, stopping handler... "+err.Error())
+				prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, "Trustee "+strconv.Itoa(state.Id)+"; Write error, stopping handler... "+err.Error())
 				exit = true
 			}
-
 		}
 	}
 }
@@ -324,9 +319,9 @@ func trusteeConnRead(state *TrusteeState, incomingStream chan []byte, closedConn
 
 		// Connection error or EOF?
 		if err == io.EOF {
-			prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, "Trustee "+strconv.Itoa(state.NodeState.Id)+"; Read EOF ")
+			prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, "Trustee "+strconv.Itoa(state.Id)+"; Read EOF ")
 		} else if err != nil {
-			prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, "Trustee "+strconv.Itoa(state.NodeState.Id)+"; Read error. "+err.Error())
+			prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, "Trustee "+strconv.Itoa(state.Id)+"; Read error. "+err.Error())
 			state.activeConnection.Close()
 			return
 		} else {

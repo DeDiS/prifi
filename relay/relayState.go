@@ -47,11 +47,13 @@ func (relayState *RelayState) deepClone() *RelayState {
 	newRelayState.privateKey = relayState.privateKey
 	newRelayState.nClients = relayState.nClients
 	newRelayState.nTrustees = relayState.nTrustees
-	newRelayState.trusteesHosts = make([]string, len(relayState.trusteesHosts))
-	newRelayState.clients = make([]prifinet.NodeRepresentation, len(relayState.clients))
-	newRelayState.trustees = make([]prifinet.NodeRepresentation, len(relayState.trustees))
-	newRelayState.CellCoder = config.Factory()
-	newRelayState.MessageHistory = relayState.MessageHistory
+
+	newRelayState.CellCoder = relayState.CellCoder.Clone()
+
+	if relayState.DownstreamHistory.CipherState != nil {
+		newRelayState.DownstreamHistory = relayState.DownstreamHistory.Clone()
+	}
+
 	newRelayState.UpstreamCellSize = relayState.UpstreamCellSize
 	newRelayState.DownstreamCellSize = relayState.DownstreamCellSize
 	newRelayState.WindowSize = relayState.WindowSize
@@ -60,21 +62,18 @@ func (relayState *RelayState) deepClone() *RelayState {
 	newRelayState.UseDummyDataDown = relayState.UseDummyDataDown
 	newRelayState.UDPBroadcastConn = relayState.UDPBroadcastConn
 
+	newRelayState.trusteesHosts = make([]string, len(relayState.trusteesHosts))
 	copy(newRelayState.trusteesHosts, relayState.trusteesHosts)
 
+	newRelayState.clients = make([]prifinet.NodeRepresentation, len(relayState.clients))
 	for i := 0; i < len(relayState.clients); i++ {
-		newRelayState.clients[i].Id = relayState.clients[i].Id
-		newRelayState.clients[i].Conn = relayState.clients[i].Conn
-		newRelayState.clients[i].Connected = relayState.clients[i].Connected
-		newRelayState.clients[i].PublicKey = relayState.clients[i].PublicKey
-	}
-	for i := 0; i < len(relayState.trustees); i++ {
-		newRelayState.trustees[i].Id = relayState.trustees[i].Id
-		newRelayState.trustees[i].Conn = relayState.trustees[i].Conn
-		newRelayState.trustees[i].Connected = relayState.trustees[i].Connected
-		newRelayState.trustees[i].PublicKey = relayState.trustees[i].PublicKey
+		newRelayState.clients[i] = relayState.clients[i].Clone()
 	}
 
+	newRelayState.trustees = make([]prifinet.NodeRepresentation, len(relayState.trustees))
+	for i := 0; i < len(relayState.trustees); i++ {
+		newRelayState.trustees[i] = relayState.trustees[i].Clone()
+	}
 	return newRelayState
 }
 

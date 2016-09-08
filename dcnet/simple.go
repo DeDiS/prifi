@@ -95,3 +95,20 @@ func (c *simpleCoder) DecodeTrustee(slice []byte) {
 func (c *simpleCoder) DecodeCell() []byte {
 	return c.xorbuf
 }
+
+func (c *simpleCoder) Clone() CellCoder {
+
+	newCoder := new(simpleCoder)
+
+	newCoder.dcciphers = make([]abstract.Cipher, len(c.dcciphers))
+	for i, dccipher := range c.dcciphers {
+		newCoder.dcciphers[i] = dccipher.Clone()
+	}
+
+	newCoder.suite = c.suite
+	newCoder.xorbuf = make([]byte, len(c.xorbuf))
+	for i, x := range(c.xorbuf) {
+		newCoder.xorbuf[i] = x
+	}
+	return newCoder
+}

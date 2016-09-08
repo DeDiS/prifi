@@ -374,3 +374,34 @@ func (c *ownedCoder) ownerDecode(hdr []byte) []byte {
 	c.suite.Cipher(key).XORKeyStream(dat, dat)
 	return dat
 }
+
+func (c *ownedCoder) Clone() CellCoder {
+
+	newCoder := new(ownedCoder)
+
+	newCoder.dcciphers = make([]abstract.Cipher, len(c.dcciphers))
+	for i, dccipher := range c.dcciphers {
+		newCoder.dcciphers[i] = dccipher.Clone()
+	}
+
+	newCoder.suite = c.suite
+	newCoder.xorbuf = make([]byte, len(c.xorbuf))
+	for i, x := range(c.xorbuf) {
+		newCoder.xorbuf[i] = x
+	}
+
+	newCoder.keylen = c.keylen
+	newCoder.maclen = c.maclen
+	newCoder.pnull = c.pnull.Clone()
+
+	if c.point != nil {
+		newCoder.point = c.point.Clone()
+	}
+	newCoder.random = c.random.Clone()
+	newCoder.vkey = c.vkey.Clone()
+	newCoder.vkeys = make([]abstract.Scalar, len(c.vkeys))
+	for i, vkey := range(c.vkeys) {
+		newCoder.vkeys[i] = vkey
+	}
+	return newCoder
+}

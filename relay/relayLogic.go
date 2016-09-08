@@ -11,6 +11,7 @@ import (
 	prifilog "github.com/lbarman/prifi/log"
 	prifinet "github.com/lbarman/prifi/net"
 	"github.com/lbarman/prifi/config"
+	"github.com/lbarman/prifi/node"
 )
 
 var udp_packet_segment_number uint32 = 0 //todo : this should be random to provide better security (maybe? TCP does so)
@@ -64,6 +65,19 @@ func StartRelay(nodeConfig config.NodeConfig, upstreamCellSize int, downstreamCe
 	relayState.waitForDefaultNumberOfClients(newClientWithIdAndPublicKeyChan)
 	relayState.advertisePublicKeys()		// TODO: DAGA -- This function should advertise ephemeral keys not long-term ones.
 	err := relayState.organizeRoundScheduling()
+
+	// Receive a composite verifiable shared secret from each trustee
+	trusteesInfo := make([][]byte, relayState.nTrustees)
+	for i, trustee := range relayState.trustees {
+		vkeyBytes, err := prifinet.ReadMessage(trustee.Conn)
+		if err != nil {
+			prifilog.Println(prifilog.RECOVERABLE_ERROR, "Relay Handler : round scheduling went wrong, restarting the configuration protocol")
+		}
+		trusteesInfo[i] = vkeyBytes
+	}
+
+	// Initialize cell coder
+	relayState.CellCoder.RelaySetup(config.CryptoSuite, trusteesInfo)
 
 	var isProtocolRunning = false
 	if err != nil {
@@ -267,10 +281,10 @@ func processMessageLoop(relayState *RelayState) {
 
 func relaySendDownStreamCell(messagesTowardsProcessingLoop chan int, priorityDownStream []prifinet.DataWithConnectionId, downStream chan prifinet.DataWithConnectionId, stats *prifilog.Statistics, relayState *RelayState) (bool, []prifinet.DataWithConnectionId) {
 
-	//this is the value we want to return to the relay's processing loop
+	// The value we want to return to the relay's processing loop
 	currentSetupContinues := true
 
-	//if the main thread tells us to stop (for re-setup)
+	// If the main thread tells us to stop (for re-setup)
 	tellClientsToResync := false
 	var mainThreadStatus int
 	select {
@@ -303,17 +317,21 @@ func relaySendDownStreamCell(messagesTowardsProcessingLoop chan int, priorityDow
 		}
 	}
 
-	//compute the message type; if MESSAGE_TYPE_DATA_AND_RESYNC, the clients know they will resync
+	// Compute the message type; if MESSAGE_TYPE_DATA_AND_RESYNC, the clients know they will resync
 	msgType := prifinet.MESSAGE_TYPE_DATA
 	if tellClientsToResync {
 		msgType = prifinet.MESSAGE_TYPE_DATA_AND_RESYNC
 		currentSetupContinues = false
+	} else {
+		// Update the downstream history with the new data
+		relayState.DownstreamHistory = node.UpdateMessageHistory(
+			relayState.DownstreamHistory, downbuffer.Data)
 	}
 
-	//craft the message for clients
+	// Craft the message for clients
 	downstreamDataCellSize := len(downbuffer.Data)
 	if relayState.UseDummyDataDown && relayState.DownstreamCellSize > len(downbuffer.Data) {
-		//if we want dummy traffic down, force the size to be as big as the specified down cell size. The rest will be 0
+		// If we want dummy traffic down, force the size to be as big as the specified down cell size. The rest will be 0
 		downstreamDataCellSize = relayState.DownstreamCellSize
 	}
 	downstreamData := make([]byte, 6+downstreamDataCellSize)
@@ -329,7 +347,6 @@ func relaySendDownStreamCell(messagesTowardsProcessingLoop chan int, priorityDow
 		prifinet.NUnicastMessageToNodes(relayState.clients, downstreamData)
 		stats.AddDownstreamCell(int64(downstreamDataCellSize))
 	}
-
 	return currentSetupContinues, priorityDownStream
 }
 
@@ -338,14 +355,16 @@ func relayGetUpStreamCell(priorityDownStream []prifinet.DataWithConnectionId, do
 	//this is the value we want to return to the relay's processing loop
 	currentSetupContinues := true
 
-	relayState.CellCoder.DecodeStart(relayState.UpstreamCellSize, relayState.MessageHistory)
+	relayState.CellCoder.DecodeStart(relayState.UpstreamCellSize, relayState.DownstreamHistory)
 
 	// Collect a cell ciphertext from each trustee
 	errorInThisCell := false
 	for i := 0; i < relayState.nTrustees; i++ {
 
 		//TODO : add a channel for timeout trustee
-		data, err := prifinet.ReadMessageWithTimeOut(i, relayState.trustees[i].Conn, CLIENT_READ_TIMEOUT, timedOutTrustees, disconnectedTrustees)
+		data, err := prifinet.ReadMessageWithTimeOut(i,
+			relayState.trustees[i].Conn, CLIENT_READ_TIMEOUT,
+			timedOutTrustees, disconnectedTrustees)
 
 		if err {
 			errorInThisCell = true

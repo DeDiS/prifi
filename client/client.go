@@ -145,7 +145,7 @@ func StartClient(nodeConfig config.NodeConfig, relayHostAddr string, expectedNum
 		prifilog.SimpleStringDump(prifilog.NOTIFICATION, "Client "+strconv.Itoa(nodeConfig.Id)+"; Everything ready, assigned to round "+
 			strconv.Itoa(myRound)+" out of "+strconv.Itoa(clientState.NodeState.NumClients))
 
-		//define downstream stream (relay -> client)
+		// Define downstream stream (relay -> client)
 		stopReadRelay := make(chan bool, 1)
 		relayDisconnected := make(chan bool, 1)
 		go readDataFromRelay(relayTCPConn, relayUDPConn, dataFromRelay, stopReadRelay, relayDisconnected, clientState)
@@ -161,10 +161,10 @@ func StartClient(nodeConfig config.NodeConfig, relayHostAddr string, expectedNum
 					continueToNextRound = false
 				}
 
-			//downstream slice from relay (normal DC-net cycle)
+			// Downstream slice from relay (normal DC-net cycle)
 			case data := <-dataFromRelay:
 
-				//compute in which round we are (respective to the number of Clients)
+				// Compute in which round we are (respective to the number of Clients)
 				currentRound := roundCount % clientState.NodeState.NumClients
 				isMySlot := false
 				if currentRound == myRound {
@@ -174,18 +174,24 @@ func StartClient(nodeConfig config.NodeConfig, relayHostAddr string, expectedNum
 				switch data.MessageType {
 
 				case prifinet.MESSAGE_TYPE_LAST_UPLOAD_FAILED:
-					//relay wants to re-setup (new key exchanges)
+
+					// Relay wants to re-setup (new key exchanges)
 					prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, "Client "+strconv.Itoa(nodeConfig.Id)+"; Relay warns that a client disconnected, gonna resync..")
 					continueToNextRound = false
 
 				case prifinet.MESSAGE_TYPE_DATA_AND_RESYNC:
-					//relay wants to re-setup (new key exchanges)
+
+					// Relay wants to re-setup (new key exchanges)
 					prifilog.SimpleStringDump(prifilog.RECOVERABLE_ERROR, "Client "+strconv.Itoa(nodeConfig.Id)+"; Relay wants to resync...")
 					continueToNextRound = false
 
 				case prifinet.MESSAGE_TYPE_DATA:
 
-					//test if it is the answer from a ping
+					// Update the downstream history with the new data
+					clientState.DownstreamHistory = node.UpdateMessageHistory(
+						clientState.DownstreamHistory, data.Data)
+
+					// Test if it is the answer from a ping
 					if len(data.Data) > 2 {
 						pattern := int(binary.BigEndian.Uint16(data.Data[0:2]))
 
@@ -193,19 +199,17 @@ func StartClient(nodeConfig config.NodeConfig, relayHostAddr string, expectedNum
 							clientId := int(binary.BigEndian.Uint16(data.Data[2:4]))
 
 							if clientId == clientState.Id {
-
 								timestamp := int64(binary.BigEndian.Uint64(data.Data[4:12]))
 								diff := prifilog.MsTimeStamp() - timestamp
 
 								//prifilog.Println(prifilog.EXPERIMENT_OUTPUT, "Client "+strconv.Itoa(nodeConfig.Id) +"; Latency is ", fmt.Sprintf("%v", diff) + "ms")
-
 								stats.AddLatency(diff)
 							}
 						} else {
 							prifilog.Println(prifilog.SEVERE_ERROR, "Unexpected downstream message received. Something is wrong...")
 						}
 					} else {
-						//data for SOCKS proxy, just hand it over to the dedicated thread
+						// Data for SOCKS proxy, just hand it over to the dedicated thread
 						if clientState.UseSocksProxy {
 							dataForSocksProxy <- data
 						}
@@ -213,24 +217,16 @@ func StartClient(nodeConfig config.NodeConfig, relayHostAddr string, expectedNum
 					stats.AddDownstreamCell(int64(len(data.Data)))
 				}
 
-				// Update the downstream history
-				s := config.CryptoSuite.Scalar().Pick(clientState.DownstreamHistory)
-				histBytes,_ := s.MarshalBinary()
-				newHist := make([]byte, len(histBytes) + len(data.Data))
-				copy(newHist[:len(histBytes)], histBytes)
-				copy(newHist[len(histBytes):], data.Data)
-				clientState.DownstreamHistory = config.CryptoSuite.Cipher(newHist)
-
 				// Produce and ship the next upstream slice
 				nBytes := writeNextUpstreamSlice(isMySlot, dataForRelayBuffer, relayTCPConn, clientState)
 				if nBytes == -1 {
-					//couldn't write anything, relay is disconnected
+					// Could not write anything, relay is disconnected
 					relayTCPConn = nil
 					continueToNextRound = false
 				}
 				stats.AddUpstreamCell(int64(nBytes))
 
-				//we report the speed, bytes exchanged, etc
+				// We report the speed, bytes exchanged, etc
 				stats.ReportWithInfo(fmt.Sprintf("cellsize=%v ", payloadLength))
 			}
 			roundCount++

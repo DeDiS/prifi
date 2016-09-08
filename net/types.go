@@ -39,3 +39,12 @@ const (
 	MESSAGE_TYPE_PUBLICKEYS
 	MESSAGE_TYPE_LAST_UPLOAD_FAILED
 )
+
+func (n *NodeRepresentation) Clone() NodeRepresentation {
+	newNode := new(NodeRepresentation)
+	newNode.Id = n.Id
+	newNode.Conn = n.Conn
+	newNode.Connected = n.Connected
+	newNode.PublicKey = n.PublicKey
+	return *newNode
+}

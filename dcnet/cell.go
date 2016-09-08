@@ -55,6 +55,9 @@ type CellCoder interface {
 	// Combine all client and trustee slices provided via DecodeSlice(),
 	// to reveal the anonymized plaintext for this cell.
 	DecodeCell() []byte
+
+	// Creates an identicial instance of the cell code.
+	Clone() CellCoder
 }
 
 type CellFactory func() CellCoder
