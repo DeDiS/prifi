@@ -405,8 +405,6 @@ func relayGetUpStreamCell(priorityDownStream []prifinet.DataWithConnectionId, do
 		upstreamPlaintext := relayState.CellCoder.DecodeCell()
 		stats.AddUpstreamCell(int64(relayState.UpstreamCellSize))
 
-		// Process the decoded cell
-
 		// Check if we have a latency test message
 		pattern := int(binary.BigEndian.Uint16(upstreamPlaintext[0:2]))
 		if pattern == 43690 { //1010101010101010
@@ -416,18 +414,18 @@ func relayGetUpStreamCell(priorityDownStream []prifinet.DataWithConnectionId, do
 			cellDown := prifinet.DataWithConnectionId{-1, upstreamPlaintext}
 			priorityDownStream = append(priorityDownStream, cellDown)
 
-			return currentSetupContinues, priorityDownStream //the rest is for SOCKS
+			return currentSetupContinues, priorityDownStream
 		}
-
 		if upstreamPlaintext == nil {
-			return currentSetupContinues, priorityDownStream // empty or corrupt upstream cell
+			prifilog.Println(prifilog.NOTIFICATION, "Empty upstream cell received")
+			return currentSetupContinues, priorityDownStream
 		}
 		if len(upstreamPlaintext) != relayState.UpstreamCellSize {
 			panic("DecodeCell produced wrong-size payload")
 		}
 
 		/*
-		 * SOCKS stuff
+		 * SOCKS stuff (for web browsing, etc)
 		 */
 
 		// Decode the upstream cell header (may be empty, all zeros)
@@ -437,9 +435,16 @@ func relayGetUpStreamCell(priorityDownStream []prifinet.DataWithConnectionId, do
 		if socksConnId == prifinet.SOCKS_CONNECTION_ID_EMPTY {
 			return currentSetupContinues, priorityDownStream
 		}
-		socksConn := socksProxyConnections[socksConnId]
 
-		// client initiating new connection
+		var exists bool
+		var socksConn chan<- []byte
+		if socksConn, exists = socksProxyConnections[socksConnId]; !exists {
+			prifilog.Println(prifilog.RECOVERABLE_ERROR,
+				"Invalid (or corrupted) upstream message received")
+			return currentSetupContinues, priorityDownStream
+		}
+
+		// Client initiating new connection
 		if socksConn == nil {
 			socksConn = newSOCKSProxyHandler(socksConnId, downStream)
 			socksProxyConnections[socksConnId] = socksConn
@@ -451,6 +456,5 @@ func relayGetUpStreamCell(priorityDownStream []prifinet.DataWithConnectionId, do
 		}
 		socksConn <- upstreamPlaintext[6 : 6+socksDataLength]
 	}
-
 	return currentSetupContinues, priorityDownStream
 }

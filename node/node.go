@@ -26,12 +26,13 @@ func InitNodeState(nodeConfig config.NodeConfig, nClients int, nTrustees int, ce
 func UpdateMessageHistory(history abstract.Cipher, newMessage []byte) abstract.Cipher {
 
 	var newHistory []byte
+
 	if history.CipherState == nil {		// If the history is empty
 		if len(newMessage) == 0 {
-			newMessage = []byte("dummy")   // Initial history
+			newHistory = []byte("dummy")	// Initial history
+		} else {
+			newHistory = newMessage
 		}
-		newHistory = make([]byte, len(newMessage))
-		copy(newHistory, newMessage)
 	} else {
 		s := config.CryptoSuite.Scalar().Pick(history)
 		historyBytes, _ := s.MarshalBinary()
