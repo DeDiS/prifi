@@ -336,7 +336,7 @@ func relaySendDownStreamCell(messagesTowardsProcessingLoop chan int, priorityDow
 	}
 	downstreamData := make([]byte, 6+downstreamDataCellSize)
 	binary.BigEndian.PutUint16(downstreamData[0:2], uint16(msgType))
-	binary.BigEndian.PutUint32(downstreamData[2:6], uint32(downbuffer.ConnectionId)) //downbuffer.ConnectionId)) //this is the SOCKS connection ID
+	binary.BigEndian.PutUint32(downstreamData[2:6], uint32(downbuffer.ConnectionId))  //this is the SOCKS connection ID
 	copy(downstreamData[6:], downbuffer.Data)
 
 	// Broadcast the downstream data to all clients.
@@ -352,7 +352,7 @@ func relaySendDownStreamCell(messagesTowardsProcessingLoop chan int, priorityDow
 
 func relayGetUpStreamCell(priorityDownStream []prifinet.DataWithConnectionId, downStream chan prifinet.DataWithConnectionId, socksProxyConnections map[int]chan<- []byte, stats *prifilog.Statistics, relayState *RelayState) (bool, []prifinet.DataWithConnectionId) {
 
-	//this is the value we want to return to the relay's processing loop
+	// The value we want to return to the relay's processing loop
 	currentSetupContinues := true
 
 	relayState.CellCoder.DecodeStart(relayState.UpstreamCellSize, relayState.DownstreamHistory)
@@ -392,7 +392,7 @@ func relayGetUpStreamCell(priorityDownStream []prifinet.DataWithConnectionId, do
 
 		prifilog.Println(prifilog.WARNING, "Relay main loop : Cell will be invalid, some party disconnected. Warning the clients...")
 
-		//craft the message for clients
+		// Craft the message for clients
 		downstreamData := make([]byte, 10)
 		binary.BigEndian.PutUint16(downstreamData[0:2], uint16(prifinet.MESSAGE_TYPE_LAST_UPLOAD_FAILED))
 		binary.BigEndian.PutUint32(downstreamData[2:6], uint32(prifinet.SOCKS_CONNECTION_ID_EMPTY)) //this is the SOCKS connection ID
@@ -403,13 +403,11 @@ func relayGetUpStreamCell(priorityDownStream []prifinet.DataWithConnectionId, do
 	} else {
 
 		upstreamPlaintext := relayState.CellCoder.DecodeCell()
-		//inflight--
-
 		stats.AddUpstreamCell(int64(relayState.UpstreamCellSize))
 
 		// Process the decoded cell
 
-		//check if we have a latency test message
+		// Check if we have a latency test message
 		pattern := int(binary.BigEndian.Uint16(upstreamPlaintext[0:2]))
 		if pattern == 43690 { //1010101010101010
 			//clientId  := uint16(binary.BigEndian.Uint16(upstreamPlaintext[2:4]))
@@ -424,7 +422,6 @@ func relayGetUpStreamCell(priorityDownStream []prifinet.DataWithConnectionId, do
 		if upstreamPlaintext == nil {
 			return currentSetupContinues, priorityDownStream // empty or corrupt upstream cell
 		}
-
 		if len(upstreamPlaintext) != relayState.UpstreamCellSize {
 			panic("DecodeCell produced wrong-size payload")
 		}
@@ -440,7 +437,6 @@ func relayGetUpStreamCell(priorityDownStream []prifinet.DataWithConnectionId, do
 		if socksConnId == prifinet.SOCKS_CONNECTION_ID_EMPTY {
 			return currentSetupContinues, priorityDownStream
 		}
-
 		socksConn := socksProxyConnections[socksConnId]
 
 		// client initiating new connection
@@ -453,7 +449,6 @@ func relayGetUpStreamCell(priorityDownStream []prifinet.DataWithConnectionId, do
 			log.Printf("upstream cell invalid length %d", 6+socksDataLength)
 			return currentSetupContinues, priorityDownStream
 		}
-
 		socksConn <- upstreamPlaintext[6 : 6+socksDataLength]
 	}
 

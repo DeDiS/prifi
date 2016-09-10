@@ -26,12 +26,10 @@ func InitNodeState(nodeConfig config.NodeConfig, nClients int, nTrustees int, ce
 func UpdateMessageHistory(history abstract.Cipher, newMessage []byte) abstract.Cipher {
 
 	var newHistory []byte
-
-	if len(newMessage) == 0 {
-		return history		// Nothing to update the history with
-	}
-
 	if history.CipherState == nil {		// If the history is empty
+		if len(newMessage) == 0 {
+			newMessage = []byte("dummy")   // Initial history
+		}
 		newHistory = make([]byte, len(newMessage))
 		copy(newHistory, newMessage)
 	} else {
