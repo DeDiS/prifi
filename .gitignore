@@ -44,3 +44,4 @@ sda/simulation/deter.toml
 sda/simulation/prifi_simul
 last-simul.log
 experiment_out
+pcap/

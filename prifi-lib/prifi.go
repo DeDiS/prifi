@@ -39,9 +39,9 @@ const (
 )
 
 // NewPriFiClient creates a new PriFi client
-func NewPriFiClient(doLatencyTest bool, dataOutputEnabled bool, dataForDCNet chan []byte, dataFromDCNet chan []byte, msgSender net.MessageSender) *PriFiLibInstance {
+func NewPriFiClient(doLatencyTest bool, dataOutputEnabled bool, dataForDCNet chan []byte, dataFromDCNet chan []byte, doReplayPcap bool, pcapFolder string, msgSender net.MessageSender) *PriFiLibInstance {
 	msw := newMessageSenderWrapper(msgSender)
-	c := client.NewClient(doLatencyTest, dataOutputEnabled, dataForDCNet, dataFromDCNet, msw)
+	c := client.NewClient(doLatencyTest, dataOutputEnabled, dataForDCNet, dataFromDCNet, doReplayPcap, pcapFolder, msw)
 	p := &PriFiLibInstance{
 		role: PRIFI_ROLE_CLIENT,
 		specializedLibInstance: c,

@@ -61,10 +61,19 @@ type ClientState struct {
 	MessageHistory            abstract.Cipher
 	StartStopReceiveBroadcast chan bool
 	timeStatistics            map[string]*prifilog.TimeStatistics
+	pcapReplay                *PCAPReplayer
 
 	//concurrent stuff
 	RoundNo           int32
 	BufferedRoundData map[int32]net.REL_CLI_DOWNSTREAM_DATA
+}
+
+// PCAPReplayer handles the data needed to replay some .pcap file
+type PCAPReplayer struct {
+	Enabled    bool
+	PCAPFolder string
+	PCAPFile   string
+	Packets    []utils.Packet
 }
 
 // PriFiLibInstance contains the mutable state of a PriFi entity.
@@ -75,7 +84,7 @@ type PriFiLibClientInstance struct {
 }
 
 // NewClient creates a new PriFi client entity state.
-func NewClient(doLatencyTest bool, dataOutputEnabled bool, dataForDCNet chan []byte, dataFromDCNet chan []byte, msgSender *net.MessageSenderWrapper) *PriFiLibClientInstance {
+func NewClient(doLatencyTest bool, dataOutputEnabled bool, dataForDCNet chan []byte, dataFromDCNet chan []byte, doReplayPcap bool, pcapFolder string, msgSender *net.MessageSenderWrapper) *PriFiLibClientInstance {
 
 	clientState := new(ClientState)
 
@@ -97,6 +106,10 @@ func NewClient(doLatencyTest bool, dataOutputEnabled bool, dataForDCNet chan []b
 	clientState.DataFromDCNet = dataFromDCNet
 	clientState.DataOutputEnabled = dataOutputEnabled
 	clientState.DCNet_FF = new(DCNet_FastForwarder)
+	clientState.pcapReplay = &PCAPReplayer{
+		Enabled:    doReplayPcap,
+		PCAPFolder: pcapFolder,
+	}
 
 	//init the state machine
 	states := []string{"BEFORE_INIT", "INITIALIZING", "EPH_KEYS_SENT", "READY", "SHUTDOWN"}

@@ -13,3 +13,5 @@ SocksClientPort = 8090
 OverrideLogLevel = -1
 ForceConsoleColor = false
 DCNetType = "Simple"
+ReplayPCAP = true
+PCAPFolder = "pcap/"

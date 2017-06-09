@@ -35,6 +35,7 @@ import (
 
 	"github.com/lbarman/prifi/prifi-lib/dcnet"
 	"github.com/lbarman/prifi/prifi-lib/scheduler"
+	"github.com/lbarman/prifi/prifi-lib/utils"
 	socks "github.com/lbarman/prifi/prifi-socks"
 	"github.com/lbarman/prifi/utils/timing"
 	"math/rand"
@@ -99,6 +100,17 @@ func (p *PriFiLibClientInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PAR
 	p.clientState.RoundNo = int32(0)
 	p.clientState.BufferedRoundData = make(map[int32]net.REL_CLI_DOWNSTREAM_DATA)
 	p.clientState.MessageHistory = config.CryptoSuite.Cipher([]byte("init")) //any non-nil, non-empty, constant array
+
+	//we know our client number, if needed, parse the pcap for replay
+	if p.clientState.pcapReplay.Enabled {
+		p.clientState.pcapReplay.PCAPFile = p.clientState.pcapReplay.PCAPFolder + "client" + strconv.Itoa(clientID) + ".pcap"
+		packets, err := utils.ParsePCAP(p.clientState.pcapReplay.PCAPFile)
+		if err != nil {
+			log.Error("Requested PCAP Replay, but could not parse; Error is", err)
+		}
+		p.clientState.pcapReplay.Packets = packets
+		log.Lvl1("Client", clientID, "loaded corresponding PCAP with", len(packets), "packets.")
+	}
 
 	//if by chance we had a broadcast-listener goroutine, kill it
 	if p.clientState.StartStopReceiveBroadcast != nil {

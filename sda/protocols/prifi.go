@@ -49,6 +49,8 @@ type PrifiTomlConfig struct {
 	SocksClientPort         int
 	ProtocolVersion         string
 	DCNetType               string
+	ReplayPCAP              bool
+	PCAPFolder              string
 }
 
 //PriFiSDAWrapperConfig is all the information the SDA-Protocols needs. It contains the network map of identities, our role, and the socks parameters if we are the corresponding role
@@ -104,7 +106,8 @@ func (p *PriFiSDAProtocol) SetConfigFromPriFiService(config *PriFiSDAWrapperConf
 		doLatencyTests := config.Toml.DoLatencyTests
 		clientDataOutputEnabled := config.Toml.ClientDataOutputEnabled
 		p.prifiLibInstance = prifi_lib.NewPriFiClient(doLatencyTests, clientDataOutputEnabled,
-			config.ClientSideSocksConfig.UpstreamChannel, config.ClientSideSocksConfig.DownstreamChannel, ms)
+			config.ClientSideSocksConfig.UpstreamChannel, config.ClientSideSocksConfig.DownstreamChannel,
+			config.Toml.ReplayPCAP, config.Toml.PCAPFolder, ms)
 	}
 
 	p.registerHandlers()

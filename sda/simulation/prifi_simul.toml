@@ -24,6 +24,8 @@ TrusteeIPRegexPattern = "10\\.1\\.0\\.([0-9]+)"
 ClientIPRegexPattern = "10\\.0\\.1\\.([0-9]+)"
 RelayIPRegexPattern = "10\\.([0-9]+)\\.([0-9]+)\\.254"
 Hosts = 5
+ReplayPCAP = true
+PCAPFolder = "pcap/"
 
 Rounds
 1
