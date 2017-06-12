@@ -94,3 +94,57 @@ type Struct_REL_TRU_TELL_RATE_CHANGE struct {
 	*onet.TreeNode
 	net.REL_TRU_TELL_RATE_CHANGE
 }
+
+//Struct_CLI_REL_QUERY is a wrapper for CLI_REL_QUERY (but also contains a *onet.TreeNode)
+type Struct_CLI_REL_QUERY struct {
+	*onet.TreeNode
+	net.CLI_REL_QUERY
+}
+
+//Struct_REL_CLI_QUERY is a wrapper for REL_CLI_QUERY (but also contains a *onet.TreeNode)
+type Struct_REL_CLI_QUERY struct {
+	*onet.TreeNode
+	net.REL_CLI_QUERY
+}
+
+//Struct_CLI_REL_BLAME is a wrapper for CLI_REL_BLAME (but also contains a *onet.TreeNode)
+type Struct_CLI_REL_BLAME struct {
+	*onet.TreeNode
+	net.CLI_REL_BLAME
+}
+
+//Struct_REL_ALL_REVEAL is a wrapper for REL_ALL_REVEAL (but also contains a *onet.TreeNode)
+type Struct_REL_ALL_REVEAL struct {
+	*onet.TreeNode
+	net.REL_ALL_REVEAL
+}
+
+//Struct_CLI_REL_REVEAL is a wrapper for CLI_REL_REVEAL (but also contains a *onet.TreeNode)
+type Struct_CLI_REL_REVEAL struct {
+	*onet.TreeNode
+	net.CLI_REL_REVEAL
+}
+
+//Struct_TRU_REL_REVEAL is a wrapper for TRU_REL_REVEAL (but also contains a *onet.TreeNode)
+type Struct_TRU_REL_REVEAL struct {
+	*onet.TreeNode
+	net.TRU_REL_REVEAL
+}
+
+//Struct_REL_ALL_SECRET is a wrapper for REL_ALL_SECRET (but also contains a *onet.TreeNode)
+type Struct_REL_ALL_SECRET struct {
+	*onet.TreeNode
+	net.REL_ALL_SECRET
+}
+
+//Struct_CLI_REL_SECRET is a wrapper for CLI_REL_SECRET (but also contains a *onet.TreeNode)
+type Struct_CLI_REL_SECRET struct {
+	*onet.TreeNode
+	net.CLI_REL_SECRET
+}
+
+//Struct_TRU_REL_SECRET is a wrapper for TRU_REL_SECRET (but also contains a *onet.TreeNode)
+type Struct_TRU_REL_SECRET struct {
+	*onet.TreeNode
+	net.TRU_REL_SECRET
+}

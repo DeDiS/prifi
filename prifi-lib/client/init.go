@@ -36,7 +36,7 @@ import (
 
 // ClientState contains the mutable state of the client.
 type ClientState struct {
-	DCNet_FF                  *DCNet_FastForwarder
+	DCNet_RoundManager        *DCNet_RoundManager
 	currentState              int16
 	DataForDCNet              chan []byte //Data to the relay : VPN / SOCKS should put data there !
 	NextDataForDCNet          *[]byte     //if not nil, send this before polling DataForDCNet
@@ -61,6 +61,10 @@ type ClientState struct {
 	MessageHistory            abstract.Cipher
 	StartStopReceiveBroadcast chan bool
 	timeStatistics            map[string]*prifilog.TimeStatistics
+	DataHistory               map[int32][]byte
+	BlameStarted              bool
+	CorruptedID               int32
+	BlamePrivateKey           abstract.Scalar
 
 	//concurrent stuff
 	RoundNo           int32
@@ -96,10 +100,11 @@ func NewClient(doLatencyTest bool, dataOutputEnabled bool, dataForDCNet chan []b
 	clientState.NextDataForDCNet = nil
 	clientState.DataFromDCNet = dataFromDCNet
 	clientState.DataOutputEnabled = dataOutputEnabled
-	clientState.DCNet_FF = new(DCNet_FastForwarder)
+	clientState.DataHistory = make(map[int32][]byte)
+	clientState.DCNet_RoundManager = new(DCNet_RoundManager)
 
 	//init the state machine
-	states := []string{"BEFORE_INIT", "INITIALIZING", "EPH_KEYS_SENT", "READY", "SHUTDOWN"}
+	states := []string{"BEFORE_INIT", "INITIALIZING", "EPH_KEYS_SENT", "READY", "BLAMING", "SHUTDOWN"}
 	sm := new(utils.StateMachine)
 	logFn := func(s interface{}) {
 		log.Lvl2(s)
@@ -150,6 +155,18 @@ func (p *PriFiLibClientInstance) ReceivedMessage(msg interface{}) error {
 	case net.REL_CLI_TELL_EPH_PKS_AND_TRUSTEES_SIG:
 		if p.stateMachine.AssertState("EPH_KEYS_SENT") {
 			err = p.Received_REL_CLI_TELL_EPH_PKS_AND_TRUSTEES_SIG(typedMsg)
+		}
+	case net.REL_CLI_QUERY:
+		if p.stateMachine.AssertState("READY") {
+			err = p.Received_REL_CLI_QUERY(typedMsg)
+		}
+	case net.REL_ALL_REVEAL:
+		if p.stateMachine.AssertState("READY") {
+			err = p.Received_REL_ALL_REVEAL(typedMsg)
+		}
+	case net.REL_ALL_SECRET:
+		if p.stateMachine.AssertState("BLAMING") {
+			err = p.Received_REL_ALL_SECRET(typedMsg)
 		}
 	default:
 		err = errors.New("Unrecognized message, type" + reflect.TypeOf(msg).String())

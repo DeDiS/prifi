@@ -89,7 +89,7 @@ func NewRelay(dataOutputEnabled bool, dataForClients chan []byte, dataFromDCNet 
 	relayState.Name = "Relay"
 
 	//init the state machine
-	states := []string{"BEFORE_INIT", "COLLECTING_TRUSTEES_PKS", "COLLECTING_CLIENT_PKS", "COLLECTING_SHUFFLES", "COLLECTING_SHUFFLE_SIGNATURES", "COMMUNICATING", "SHUTDOWN"}
+	states := []string{"BEFORE_INIT", "COLLECTING_TRUSTEES_PKS", "COLLECTING_CLIENT_PKS", "COLLECTING_SHUFFLES", "COLLECTING_SHUFFLE_SIGNATURES", "COMMUNICATING", "BLAMING", "SHUTDOWN"}
 	sm := new(utils.StateMachine)
 	logFn := func(s interface{}) {
 		log.Lvl2(s)
@@ -148,7 +148,9 @@ type RelayState struct {
 	DataForClients                    chan []byte // VPN / SOCKS should put data there !
 	PriorityDataForClients            chan []byte
 	DataFromDCNet                     chan []byte // VPN / SOCKS should read data from there !
-	DataOutputEnabled                 bool        // If FALSE, nothing will be written to DataFromDCNet
+	DCNetData                         []byte
+	HashRoundID                       int32
+	DataOutputEnabled                 bool // If FALSE, nothing will be written to DataFromDCNet
 	DownstreamCellSize                int
 	MessageHistory                    abstract.Cipher
 	Name                              string
@@ -173,6 +175,9 @@ type RelayState struct {
 	timeStatistics                    map[string]*prifilog.TimeStatistics
 	slotScheduler                     *scheduler.BitMaskSlotScheduler_Relay
 	dcNetType                         string
+	clientBitMap                      map[int]map[int]int
+	trusteeBitMap                     map[int]map[int]int
+	blamingData                       []int //[round#, bitPos, clientID, bitRevealed, trusteeID, bitRevealed]
 
 	//Used for verifiable DC-net, part of the dcnet/owned.go
 	VerifiableDCNetKeys [][]byte
@@ -219,6 +224,30 @@ func (p *PriFiLibRelayInstance) ReceivedMessage(msg interface{}) error {
 	case net.TRU_REL_SHUFFLE_SIG:
 		if p.stateMachine.AssertState("COLLECTING_SHUFFLE_SIGNATURES") {
 			err = p.Received_TRU_REL_SHUFFLE_SIG(typedMsg)
+		}
+	case net.CLI_REL_QUERY:
+		if p.stateMachine.AssertState("COMMUNICATING") {
+			err = p.Received_CLI_REL_QUERY(typedMsg)
+		}
+	case net.CLI_REL_BLAME:
+		if p.stateMachine.AssertState("COMMUNICATING") {
+			err = p.Received_CLI_REL_BLAME(typedMsg)
+		}
+	case net.CLI_REL_REVEAL:
+		if p.stateMachine.AssertState("BLAMING") {
+			err = p.Received_CLI_REL_REVEAL(typedMsg)
+		}
+	case net.TRU_REL_REVEAL:
+		if p.stateMachine.AssertState("BLAMING") {
+			err = p.Received_TRU_REL_REVEAL(typedMsg)
+		}
+	case net.TRU_REL_SECRET:
+		if p.stateMachine.AssertState("BLAMING") {
+			err = p.Received_TRU_REL_SECRET(typedMsg)
+		}
+	case net.CLI_REL_SECRET:
+		if p.stateMachine.AssertState("BLAMING") {
+			err = p.Received_CLI_REL_SECRET(typedMsg)
 		}
 	default:
 		err = errors.New("Unrecognized message, type" + reflect.TypeOf(msg).String())

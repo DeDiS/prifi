@@ -47,7 +47,7 @@ func TestUtils(t *testing.T) {
 func TestEncodeDecodeStdMessage(t *testing.T) {
 
 	//create fake message
-	msg := &REL_CLI_DOWNSTREAM_DATA{RoundID: 1, Data: make([]byte, 0), FlagResync: true}
+	msg := &REL_CLI_DOWNSTREAM_DATA{RoundID: 1, Data: make([]byte, 0), FlagResync: true, HashRoundID: -1, Hash: make([]byte, 0)}
 
 	//encode it
 	bytes, err := protobuf.Encode(msg)
@@ -66,6 +66,9 @@ func TestEncodeDecodeStdMessage(t *testing.T) {
 	}
 
 	if emptyMsg.RoundID != msg.RoundID {
+		t.Error("RoundID should be the same")
+	}
+	if emptyMsg.HashRoundID != msg.HashRoundID {
 		t.Error("RoundID should be the same")
 	}
 	if emptyMsg.FlagResync != msg.FlagResync {

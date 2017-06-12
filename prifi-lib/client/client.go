@@ -33,6 +33,8 @@ import (
 	"gopkg.in/dedis/crypto.v0/abstract"
 	"gopkg.in/dedis/onet.v1/log"
 
+	"bytes"
+	"crypto/sha256"
 	"github.com/lbarman/prifi/prifi-lib/dcnet"
 	"github.com/lbarman/prifi/prifi-lib/scheduler"
 	socks "github.com/lbarman/prifi/prifi-socks"
@@ -78,9 +80,9 @@ func (p *PriFiLibClientInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PAR
 
 	switch dcNetType {
 	case "Simple":
-		p.clientState.DCNet_FF.CellCoder = dcnet.SimpleCoderFactory()
+		p.clientState.DCNet_RoundManager.CellCoder = dcnet.SimpleCoderFactory()
 	case "Verifiable":
-		p.clientState.DCNet_FF.CellCoder = dcnet.OwnedCoderFactory()
+		p.clientState.DCNet_RoundManager.CellCoder = dcnet.OwnedCoderFactory()
 	default:
 		log.Fatal("DCNetType must be Simple or Verifiable")
 	}
@@ -92,7 +94,7 @@ func (p *PriFiLibClientInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PAR
 	p.clientState.nClients = nClients
 	p.clientState.nTrustees = nTrustees
 	p.clientState.PayloadLength = upCellSize
-	p.clientState.UsablePayloadLength = p.clientState.DCNet_FF.CellCoder.ClientCellSize(upCellSize)
+	p.clientState.UsablePayloadLength = p.clientState.DCNet_RoundManager.CellCoder.ClientCellSize(upCellSize)
 	p.clientState.UseUDP = useUDP
 	p.clientState.TrusteePublicKey = make([]abstract.Point, nTrustees)
 	p.clientState.sharedSecrets = make([]abstract.Point, nTrustees)
@@ -171,6 +173,24 @@ func (p *PriFiLibClientInstance) ProcessDownStreamData(msg net.REL_CLI_DOWNSTREA
 
 	timing.StartMeasure("round-processing")
 
+	//processing hash
+
+	if msg.Hash != nil {
+		for roundID, data := range p.clientState.DataHistory {
+			if msg.HashRoundID == roundID {
+				var hash []byte
+				hash2 := sha256.Sum256(data)
+				hash = hash2[:]
+				if bytes.Equal(msg.Hash, hash) {
+					delete(p.clientState.DataHistory, roundID)
+				} else {
+					//start of blame procedure
+					p.clientState.BlameStarted = true
+					p.clientState.CorruptedID = roundID
+				}
+			}
+		}
+	}
 	/*
 	 * HANDLE THE DOWNSTREAM DATA
 	 */
@@ -231,7 +251,7 @@ func (p *PriFiLibClientInstance) ProcessDownStreamData(msg net.REL_CLI_DOWNSTREA
 		contribution := bmc.Client_GetOpenScheduleContribution()
 
 		//produce the next upstream cell
-		upstreamCell := p.clientState.DCNet_FF.ClientEncodeForRound(p.clientState.RoundNo, contribution, p.clientState.PayloadLength, p.clientState.MessageHistory)
+		upstreamCell := p.clientState.DCNet_RoundManager.ClientEncodeForRound(p.clientState.RoundNo, contribution, p.clientState.PayloadLength, p.clientState.MessageHistory)
 
 		//send the data to the relay
 		toSend := &net.CLI_REL_OPENCLOSED_DATA{
@@ -320,6 +340,7 @@ func (p *PriFiLibClientInstance) SendUpstreamData() error {
 		if p.clientState.NextDataForDCNet != nil {
 			upstreamCellContent = *p.clientState.NextDataForDCNet
 			p.clientState.NextDataForDCNet = nil
+
 		} else {
 			select {
 
@@ -347,10 +368,25 @@ func (p *PriFiLibClientInstance) SendUpstreamData() error {
 				}
 			}
 		}
+		content := make([]byte, len(upstreamCellContent))
+		copy(content[:], upstreamCellContent[:])
+		p.clientState.DataHistory[p.clientState.RoundNo] = content
+		//log.Lvl3("data : ", content)
 	}
 
+	//query the corrupted plaintext if it was corrupted
+	if p.clientState.BlameStarted {
+		var EphPublicKey abstract.Point
+		EphPublicKey, p.clientState.BlamePrivateKey = crypto.NewKeyPair()
+
+		toSend := &net.CLI_REL_QUERY{
+			RoundID: p.clientState.RoundNo - 1,
+			NIZK:    make([]byte, 1),
+			Pk:      EphPublicKey}
+		p.messageSender.SendToRelayWithLog(toSend, "Query for the blame procedure sent.")
+	}
 	//produce the next upstream cell
-	upstreamCell := p.clientState.DCNet_FF.ClientEncodeForRound(p.clientState.RoundNo, upstreamCellContent, p.clientState.PayloadLength, p.clientState.MessageHistory)
+	upstreamCell := p.clientState.DCNet_RoundManager.ClientEncodeForRound(p.clientState.RoundNo, upstreamCellContent, p.clientState.PayloadLength, p.clientState.MessageHistory)
 	//send the data to the relay
 	toSend := &net.CLI_REL_UPSTREAM_DATA{
 		ClientID: p.clientState.ID,
@@ -394,7 +430,8 @@ func (p *PriFiLibClientInstance) Received_REL_CLI_TELL_TRUSTEES_PK(msg net.REL_C
 		}
 		sharedPRNGs[i] = config.CryptoSuite.Cipher(bytes)
 	}
-	p.clientState.DCNet_FF.CellCoder.ClientSetup(config.CryptoSuite, sharedPRNGs)
+	p.clientState.DCNet_RoundManager.ClientSetup(p.clientState.sharedSecrets)
+	p.clientState.DCNet_RoundManager.CellCoder.ClientSetup(config.CryptoSuite, sharedPRNGs)
 
 	//then, generate our ephemeral keys (used for shuffling)
 	p.clientState.EphemeralPublicKey, p.clientState.ephemeralPrivateKey = crypto.NewKeyPair()
@@ -455,7 +492,7 @@ func (p *PriFiLibClientInstance) Received_REL_CLI_TELL_EPH_PKS_AND_TRUSTEES_SIG(
 	log.Lvl3("Client " + strconv.Itoa(p.clientState.ID) + " is ready to communicate.")
 
 	//produce a blank cell (we could embed data, but let's keep the code simple, one wasted message is not much)
-	upstreamCell := p.clientState.DCNet_FF.ClientEncodeForRound(0, nil, p.clientState.PayloadLength, p.clientState.MessageHistory)
+	upstreamCell := p.clientState.DCNet_RoundManager.ClientEncodeForRound(0, nil, p.clientState.PayloadLength, p.clientState.MessageHistory)
 
 	//send the data to the relay
 	toSend := &net.CLI_REL_UPSTREAM_DATA{
@@ -467,5 +504,84 @@ func (p *PriFiLibClientInstance) Received_REL_CLI_TELL_EPH_PKS_AND_TRUSTEES_SIG(
 
 	p.clientState.RoundNo++
 
+	return nil
+}
+
+/*
+Received_REL_CLI_QUERY handles REL_CLI_QUERY messages.
+We compare the plaintexts to find the flipped bits.
+*/
+func (p *PriFiLibClientInstance) Received_REL_CLI_QUERY(msg net.REL_CLI_QUERY) error {
+	//decrypt and compare plaintext with data @ RoundID
+
+	p2 := config.CryptoSuite.Point().Mul(config.CryptoSuite.Point().Base(), p.clientState.BlamePrivateKey)
+	point := config.CryptoSuite.Point().Sub(msg.EncryptedData, p2)
+	message, err := point.Data()
+	if err != nil {
+		log.Fatal("Impossible to decode message sent by relay")
+	}
+	for roundID, data := range p.clientState.DataHistory {
+		if msg.RoundID == roundID {
+			bitPos := comparePlaintexts(data, message)
+			toSend := &net.CLI_REL_BLAME{
+				RoundID: roundID,
+				NIZK:    make([]byte, 1),
+				BitPos:  bitPos,
+			}
+
+			if bitPos != -1 { //if bitPos is -1, we can't continue blame procedure
+				p.messageSender.SendToRelayWithLog(toSend, "Bit found, beginning of blame procedure.")
+			}
+		}
+	}
+
+	return nil
+}
+
+/*
+comparePlaintexts returns the first position where a 0 in the first array was flipped to a 1 in the second,
+or -1 if there is no such position
+*/
+func comparePlaintexts(data1, data2 []byte) int {
+
+	for i := 0; i < len(data1); i++ {
+		b1 := data1[i]
+		b2 := data2[i]
+
+		for j := 0; j < 8; j++ {
+			mask := byte(1 << uint8(j))
+			if (b1&mask) != (b2&mask) && (b1&mask) == 0 { //difference between b1 and b2 and it's a 0 in b1
+				return (i*8 + 7 - j)
+			}
+		}
+	}
+	return -1
+}
+
+/*
+Received_REL_ALL_REVEAL handles REL_ALL_REVEAL messages.
+We send back one bit per trustee, from the shared cipher, at bitPos
+*/
+func (p *PriFiLibClientInstance) Received_REL_ALL_REVEAL(msg net.REL_ALL_REVEAL) error {
+	p.stateMachine.ChangeState("BLAMING")
+	bits := p.clientState.DCNet_RoundManager.RevealBits(msg.RoundID, msg.BitPos, p.clientState.UsablePayloadLength)
+	toSend := &net.CLI_REL_REVEAL{
+		ClientID: p.clientState.ID,
+		Bits:     bits}
+	p.messageSender.SendToRelayWithLog(toSend, "Revealed bits")
+	return nil
+}
+
+/*
+Received_REL_ALL_SECRET handles REL_ALL_SECRET messages.
+We send back the shared secret with the indicated trustee
+*/
+func (p *PriFiLibClientInstance) Received_REL_ALL_SECRET(msg net.REL_ALL_SECRET) error {
+
+	secret := p.clientState.sharedSecrets[msg.UserID]
+	toSend := &net.CLI_REL_SECRET{
+		Secret: secret,
+		NIZK:   make([]byte, 0)}
+	p.messageSender.SendToRelayWithLog(toSend, "Sent secret to relay")
 	return nil
 }

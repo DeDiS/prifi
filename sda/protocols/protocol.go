@@ -122,6 +122,12 @@ func init() {
 	network.RegisterMessage(net.TRU_REL_SHUFFLE_SIG{})
 	network.RegisterMessage(net.TRU_REL_TELL_NEW_BASE_AND_EPH_PKS{})
 	network.RegisterMessage(net.TRU_REL_TELL_PK{})
+	network.RegisterMessage(net.CLI_REL_QUERY{})
+	network.RegisterMessage(net.REL_CLI_QUERY{})
+	network.RegisterMessage(net.CLI_REL_BLAME{})
+	network.RegisterMessage(net.REL_ALL_REVEAL{})
+	network.RegisterMessage(net.TRU_REL_REVEAL{})
+	network.RegisterMessage(net.CLI_REL_REVEAL{})
 
 	onet.GlobalProtocolRegister(ProtocolName, NewPriFiSDAWrapperProtocol)
 }
@@ -226,5 +232,30 @@ func (p *PriFiSDAProtocol) registerHandlers() error {
 		return errors.New("couldn't register handler: " + err.Error())
 	}
 
+	//register blame procedure handlers
+	err = p.RegisterHandler(p.Received_CLI_REL_QUERY)
+	if err != nil {
+		return errors.New("couldn't register handler: " + err.Error())
+	}
+	err = p.RegisterHandler(p.Received_REL_CLI_QUERY)
+	if err != nil {
+		return errors.New("couldn't register handler: " + err.Error())
+	}
+	err = p.RegisterHandler(p.Received_CLI_REL_BLAME)
+	if err != nil {
+		return errors.New("couldn't register handler: " + err.Error())
+	}
+	err = p.RegisterHandler(p.Received_REL_ALL_REVEAL)
+	if err != nil {
+		return errors.New("couldn't register handler: " + err.Error())
+	}
+	err = p.RegisterHandler(p.Received_TRU_REL_REVEAL)
+	if err != nil {
+		return errors.New("couldn't register handler: " + err.Error())
+	}
+	err = p.RegisterHandler(p.Received_CLI_REL_REVEAL)
+	if err != nil {
+		return errors.New("couldn't register handler: " + err.Error())
+	}
 	return nil
 }

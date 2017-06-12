@@ -3,7 +3,6 @@ package trustee
 import (
 	"errors"
 	"github.com/lbarman/prifi/prifi-lib/crypto"
-	"github.com/lbarman/prifi/prifi-lib/dcnet"
 	"github.com/lbarman/prifi/prifi-lib/net"
 	"github.com/lbarman/prifi/prifi-lib/scheduler"
 	"github.com/lbarman/prifi/prifi-lib/utils"
@@ -38,14 +37,14 @@ func NewTrustee(msgSender *net.MessageSenderWrapper) *PriFiLibTrusteeInstance {
 
 	//init the static stuff
 	trusteeState.sendingRate = make(chan int16, 10)
-	//trusteeState.CellCoder = config.Factory()
+	trusteeState.DCNet_RoundManager = new(DCNet_RoundManager)
 	trusteeState.PublicKey, trusteeState.privateKey = crypto.NewKeyPair()
 	neffShuffle := new(scheduler.NeffShuffle)
 	neffShuffle.Init()
 	trusteeState.neffShuffle = neffShuffle.TrusteeView
 
 	//init the state machine
-	states := []string{"BEFORE_INIT", "INITIALIZING", "SHUFFLE_DONE", "READY", "SHUTDOWN"}
+	states := []string{"BEFORE_INIT", "INITIALIZING", "SHUFFLE_DONE", "READY", "BLAMING", "SHUTDOWN"}
 	sm := new(utils.StateMachine)
 	logFn := func(s interface{}) {
 		log.Lvl3(s)
@@ -69,20 +68,20 @@ func NewTrustee(msgSender *net.MessageSenderWrapper) *PriFiLibTrusteeInstance {
 
 // TrusteeState contains the mutable state of the trustee.
 type TrusteeState struct {
-	CellCoder        dcnet.CellCoder
-	ClientPublicKeys []abstract.Point
-	ID               int
-	MessageHistory   abstract.Cipher
-	Name             string
-	nClients         int
-	neffShuffle      *scheduler.NeffShuffleTrustee
-	nTrustees        int
-	PayloadLength    int
-	privateKey       abstract.Scalar
-	PublicKey        abstract.Point
-	sendingRate      chan int16
-	sharedSecrets    []abstract.Point
-	TrusteeID        int
+	ClientPublicKeys   []abstract.Point
+	DCNet_RoundManager *DCNet_RoundManager
+	ID                 int
+	MessageHistory     abstract.Cipher
+	Name               string
+	nClients           int
+	neffShuffle        *scheduler.NeffShuffleTrustee
+	nTrustees          int
+	PayloadLength      int
+	privateKey         abstract.Scalar
+	PublicKey          abstract.Point
+	sendingRate        chan int16
+	sharedSecrets      []abstract.Point
+	TrusteeID          int
 }
 
 // NeffShuffleResult holds the result of the NeffShuffle,
@@ -118,6 +117,15 @@ func (p *PriFiLibTrusteeInstance) ReceivedMessage(msg interface{}) error {
 		if p.stateMachine.AssertState("READY") {
 			err = p.Received_REL_TRU_TELL_RATE_CHANGE(typedMsg)
 		}
+	case net.REL_ALL_REVEAL:
+		if p.stateMachine.AssertState("READY") {
+			err = p.Received_REL_ALL_REVEAL(typedMsg)
+		}
+	case net.REL_ALL_SECRET:
+		if p.stateMachine.AssertState("BLAMING") {
+			err = p.Received_REL_ALL_SECRET(typedMsg)
+		}
+
 	default:
 		err = errors.New("Unrecognized message, type" + reflect.TypeOf(msg).String())
 	}

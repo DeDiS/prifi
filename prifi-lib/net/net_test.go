@@ -140,6 +140,8 @@ func TestUDPMessage(t *testing.T) {
 	content.FlagResync = true
 	content.Data = random.Bits(100, false, random.Stream)
 	content.FlagOpenClosedRequest = true
+	content.HashRoundID = 1
+	content.Hash = random.Bits(256, false, random.Stream)
 
 	msg.SetContent(*content)
 
@@ -165,11 +167,17 @@ func TestUDPMessage(t *testing.T) {
 	if parsedMsg.RoundID != content.RoundID {
 		t.Error("RoundID unparsed incorrectly")
 	}
+	if parsedMsg.HashRoundID != content.HashRoundID {
+		t.Error("HashRoundID unparsed incorrectly")
+	}
 	if parsedMsg.FlagResync != content.FlagResync {
 		t.Error("FlagResync unparsed incorrectly")
 	}
 	if !bytes.Equal(parsedMsg.Data, content.Data) {
 		t.Error("Data unparsed incorrectly")
+	}
+	if !bytes.Equal(parsedMsg.Hash, content.Hash) {
+		t.Error("Hash unparsed incorrectly")
 	}
 
 	//this should fail, cannot read the size if len<4
