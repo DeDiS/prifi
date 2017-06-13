@@ -333,6 +333,9 @@ func (p *PriFiLibClientInstance) SendUpstreamData() error {
 			upstreamCellContent = *p.clientState.NextDataForDCNet
 			p.clientState.NextDataForDCNet = nil
 		} else {
+
+			if p.clientState
+			
 			select {
 
 			//either select data from the data we have to send, if any
