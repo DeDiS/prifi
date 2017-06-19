@@ -40,6 +40,7 @@ import (
 	"github.com/lbarman/prifi/utils/timing"
 	"math/rand"
 	"time"
+	"fmt"
 )
 
 // Received_ALL_CLI_SHUTDOWN handles ALL_CLI_SHUTDOWN messages.
@@ -334,31 +335,63 @@ func (p *PriFiLibClientInstance) SendUpstreamData() error {
 			p.clientState.NextDataForDCNet = nil
 		} else {
 
-			if p.clientState
-			
-			select {
+			//if there are some pcap packets to replay
+			if p.clientState.pcapReplay.Enabled && p.clientState.pcapReplay.currentPacket < len(p.clientState.pcapReplay.Packets) {
 
-			//either select data from the data we have to send, if any
-			case myData := <-p.clientState.DataForDCNet:
-				upstreamCellContent = myData
+				//if it is time to send some packet
+				relativeNow := MsTimeStampNow() - p.clientState.pcapReplay.time0
 
-			//or, if we have nothing to send, and we are doing Latency tests, embed a pre-crafted message that we will recognize later on
-			default:
-				emptyData := socks.NewSocksPacket(socks.DummyData, 0, 0, uint16(p.clientState.PayloadLength), make([]byte, 0))
-				upstreamCellContent = emptyData.ToBytes()
+				log.Error("Now is", MsTimeStampNow(), "Exp started", p.clientState.pcapReplay.time0, ", Relative now is", relativeNow)
 
-				if len(p.clientState.LatencyTest.LatencyTestsToSend) > 0 {
+				payload := make([]byte, 0)
+				currentPacket := p.clientState.pcapReplay.Packets[p.clientState.pcapReplay.currentPacket]
+				//all packets >= currentPacket AND <= relativeNow should be sent
 
-					logFn := func(timeDiff int64) {
-						p.clientState.timeStatistics["latency-msg-stayed-in-buffer"].AddTime(timeDiff)
-						p.clientState.timeStatistics["latency-msg-stayed-in-buffer"].ReportWithInfo("latency-msg-stayed-in-buffer")
+				for currentPacket.TimeSent/1000 <= relativeNow && len(payload) + len(currentPacket.Data) <= p.clientState.PayloadLength {
+
+					log.Error("Adding pcap packet", currentPacket.ID, "length", len(currentPacket.Data), "round", currentRound)
+					//add this packet
+					payload = append(payload, currentPacket.Data...)
+					p.clientState.pcapReplay.currentPacket += 1
+					currentPacket = p.clientState.pcapReplay.Packets[p.clientState.pcapReplay.currentPacket]
+				}
+
+				if relativeNow > 3100 {
+					for i := 0; i<10; i++ {
+						log.Error(i, p.clientState.pcapReplay.Packets[i].ID, p.clientState.pcapReplay.Packets[i].TimeSent)
 					}
+					log.Fatal("done")
+				}
 
-					bytes, outMsgs := prifilog.LatencyMessagesToBytes(p.clientState.LatencyTest.LatencyTestsToSend,
-						p.clientState.ID, p.clientState.RoundNo, p.clientState.PayloadLength, logFn)
+				fmt.Println(payload)
 
-					p.clientState.LatencyTest.LatencyTestsToSend = outMsgs
-					upstreamCellContent = bytes
+				upstreamCellContent = payload
+			} else {
+
+				select {
+
+				//either select data from the data we have to send, if any
+				case myData := <-p.clientState.DataForDCNet:
+					upstreamCellContent = myData
+
+				//or, if we have nothing to send, and we are doing Latency tests, embed a pre-crafted message that we will recognize later on
+				default:
+					emptyData := socks.NewSocksPacket(socks.DummyData, 0, 0, uint16(p.clientState.PayloadLength), make([]byte, 0))
+					upstreamCellContent = emptyData.ToBytes()
+
+					if len(p.clientState.LatencyTest.LatencyTestsToSend) > 0 {
+
+						logFn := func(timeDiff int64) {
+							p.clientState.timeStatistics["latency-msg-stayed-in-buffer"].AddTime(timeDiff)
+							p.clientState.timeStatistics["latency-msg-stayed-in-buffer"].ReportWithInfo("latency-msg-stayed-in-buffer")
+						}
+
+						bytes, outMsgs := prifilog.LatencyMessagesToBytes(p.clientState.LatencyTest.LatencyTestsToSend,
+							p.clientState.ID, p.clientState.RoundNo, p.clientState.PayloadLength, logFn)
+
+						p.clientState.LatencyTest.LatencyTestsToSend = outMsgs
+						upstreamCellContent = bytes
+					}
 				}
 			}
 		}
@@ -371,6 +404,7 @@ func (p *PriFiLibClientInstance) SendUpstreamData() error {
 		ClientID: p.clientState.ID,
 		RoundID:  p.clientState.RoundNo,
 		Data:     upstreamCell}
+	fmt.Println(upstreamCell)
 	p.messageSender.SendToRelayWithLog(toSend, "(round "+strconv.Itoa(int(p.clientState.RoundNo))+")")
 
 	return nil
@@ -409,7 +443,7 @@ func (p *PriFiLibClientInstance) Received_REL_CLI_TELL_TRUSTEES_PK(msg net.REL_C
 		}
 		sharedPRNGs[i] = config.CryptoSuite.Cipher(bytes)
 	}
-	p.clientState.DCNet_FF.CellCoder.ClientSetup(config.CryptoSuite, sharedPRNGs)
+	//p.clientState.DCNet_FF.CellCoder.ClientSetup(config.CryptoSuite, sharedPRNGs)
 
 	//then, generate our ephemeral keys (used for shuffling)
 	p.clientState.EphemeralPublicKey, p.clientState.ephemeralPrivateKey = crypto.NewKeyPair()

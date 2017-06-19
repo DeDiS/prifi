@@ -23,7 +23,7 @@ func ParsePCAP(path string) ([]Packet, error) {
 	}
 	parsed, err := gopcap.Parse(pcapfile)
 	if err != nil {
-		return nil, errors.New("Cannot prase" + path + "error is" + err.Error())
+		return nil, errors.New("Cannot parse" + path + "error is" + err.Error())
 	}
 
 	out := make([]Packet, 0)
