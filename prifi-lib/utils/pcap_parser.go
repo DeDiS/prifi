@@ -6,6 +6,7 @@ import (
 	"gopkg.in/dedis/onet.v1/log"
 	"math/rand"
 	"os"
+	"encoding/binary"
 )
 
 // Packet is an ID(Packet number), TimeSent in microsecond, and some Data
@@ -37,7 +38,7 @@ func ParsePCAP(path string) ([]Packet, error) {
 
 		p := Packet{
 			ID:       uint32(id),
-			Data:     getPayloadOrRandom(pkt),
+			Data:     getPayloadOrRandom(pkt, uint32(id)),
 			TimeSent: (pkt.Timestamp.Nanoseconds() - timeDelta) / 1000,
 		}
 
@@ -51,14 +52,38 @@ func ParsePCAP(path string) ([]Packet, error) {
 	return out, nil
 }
 
-func getPayloadOrRandom(pkt gopcap.Packet) []byte {
+func getPayloadOrRandom(pkt gopcap.Packet, packetID uint32) []byte {
 	len := pkt.IncludedLen
 
-	if pkt.Data == nil {
-		return randomBytes(len)
+	if true || pkt.Data == nil {
+		return recognizableBytes(int(len), packetID)
 	}
 
 	return pkt.Data.LinkData().InternetData().TransportData()
+}
+
+func recognizableBytes(length int, packetID uint32) []byte {
+	if length == 0 {
+		return make([]byte, 0)
+	}
+	pattern := make([]byte, 4)
+	binary.BigEndian.PutUint32(pattern, packetID)
+
+	pos := 0
+	out := make([]byte, length)
+	for pos < length {
+		//copy from pos,
+		copyLength := len(pattern)
+		copyEndPos := pos + copyLength
+		if copyEndPos > length {
+			copyEndPos = length
+			copyLength = copyEndPos - pos
+		}
+		copy(out[pos:copyEndPos], pattern[0:copyLength])
+		pos = copyEndPos
+	}
+
+	return out
 }
 
 func randomBytes(len uint32) []byte {

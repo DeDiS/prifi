@@ -356,13 +356,14 @@ func (p *PriFiLibClientInstance) SendUpstreamData() error {
 					currentPacket = p.clientState.pcapReplay.Packets[p.clientState.pcapReplay.currentPacket]
 				}
 
-				if relativeNow > 3100 {
+				if relativeNow > 2912 {
 					for i := 0; i<10; i++ {
 						log.Error(i, p.clientState.pcapReplay.Packets[i].ID, p.clientState.pcapReplay.Packets[i].TimeSent)
 					}
 					log.Fatal("done")
 				}
 
+				fmt.Println("Payload is:")
 				fmt.Println(payload)
 
 				upstreamCellContent = payload
@@ -404,6 +405,8 @@ func (p *PriFiLibClientInstance) SendUpstreamData() error {
 		ClientID: p.clientState.ID,
 		RoundID:  p.clientState.RoundNo,
 		Data:     upstreamCell}
+
+	fmt.Println("upstreamCell is:")
 	fmt.Println(upstreamCell)
 	p.messageSender.SendToRelayWithLog(toSend, "(round "+strconv.Itoa(int(p.clientState.RoundNo))+")")
 
