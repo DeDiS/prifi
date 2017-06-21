@@ -63,7 +63,7 @@ func NewPriFiRelay(dataOutputEnabled bool, dataForClients chan []byte, dataFromD
 }
 
 // NewPriFiTrustee creates a new PriFi trustee
-func NewPriFiTrustee(msgSender net.MessageSender) *PriFiLibInstance {
+func NewPriFiTrustee(neverSlowDown bool, msgSender net.MessageSender) *PriFiLibInstance {
 	//msw := newMessageSenderWrapper(msgSender)
 
 	errHandling := func(e error) { /* do nothing yet, we are alerted of errors via the SDA */ }
@@ -75,7 +75,7 @@ func NewPriFiTrustee(msgSender net.MessageSender) *PriFiLibInstance {
 		log.Fatal("Could not create a MessageSenderWrapper, error is", err)
 	}
 
-	t := trustee.NewTrustee(msw)
+	t := trustee.NewTrustee(neverSlowDown, msw)
 	p := &PriFiLibInstance{
 		role: PRIFI_ROLE_TRUSTEE,
 		specializedLibInstance: t,

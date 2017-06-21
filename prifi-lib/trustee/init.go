@@ -32,7 +32,7 @@ type PriFiLibTrusteeInstance struct {
 }
 
 // NewPriFiClientWithState creates a new PriFi client entity state.
-func NewTrustee(msgSender *net.MessageSenderWrapper) *PriFiLibTrusteeInstance {
+func NewTrustee(neverSlowDown bool, msgSender *net.MessageSenderWrapper) *PriFiLibTrusteeInstance {
 
 	trusteeState := new(TrusteeState)
 
@@ -43,6 +43,7 @@ func NewTrustee(msgSender *net.MessageSenderWrapper) *PriFiLibTrusteeInstance {
 	neffShuffle := new(scheduler.NeffShuffle)
 	neffShuffle.Init()
 	trusteeState.neffShuffle = neffShuffle.TrusteeView
+	trusteeState.NeverSlowDown = neverSlowDown
 
 	//init the state machine
 	states := []string{"BEFORE_INIT", "INITIALIZING", "SHUFFLE_DONE", "READY", "SHUTDOWN"}
@@ -83,6 +84,7 @@ type TrusteeState struct {
 	sendingRate      chan int16
 	sharedSecrets    []abstract.Point
 	TrusteeID        int
+	NeverSlowDown 	 bool //ignore the sleep in the sending function if rate is STOPPED
 }
 
 // NeffShuffleResult holds the result of the NeffShuffle,

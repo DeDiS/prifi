@@ -15,3 +15,4 @@ ForceConsoleColor = false
 DCNetType = "Simple"
 ReplayPCAP = true
 PCAPFolder = "pcap/"
+TrusteeNeverSlowDown = false
