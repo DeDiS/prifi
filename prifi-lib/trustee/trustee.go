@@ -138,7 +138,7 @@ func (p *PriFiLibTrusteeInstance) Send_TRU_REL_DC_CIPHER(rateChan chan int16) {
 				roundID, _ = sendData(p, roundID)
 
 			} else if currentRate == TRUSTEE_RATE_STOPPED {
-				time.Sleep(0 * TRUSTEE_BASE_SLEEP_TIME)
+				time.Sleep(1 * TRUSTEE_BASE_SLEEP_TIME)
 				roundID, _ = sendData(p, roundID)
 
 			} else {
@@ -172,6 +172,8 @@ It returns the new round number (previous + 1).
 */
 func sendData(p *PriFiLibTrusteeInstance, roundID int32) (int32, error) {
 	data := p.trusteeState.CellCoder.TrusteeEncode(p.trusteeState.PayloadLength)
+
+	log.Error("Trustee", roundID, data[0:10])
 
 	//send the data
 	toSend := &net.TRU_REL_DC_CIPHER{

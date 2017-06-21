@@ -9,6 +9,9 @@ import (
 	"encoding/binary"
 )
 
+const pattern uint16 = uint16(21845) //0101010101010101
+const metaMessageLength int = 10      // 2bytes pattern + 8bytes timeStamp
+
 // Packet is an ID(Packet number), TimeSent in microsecond, and some Data
 type Packet struct {
 	ID       uint32
@@ -56,10 +59,21 @@ func getPayloadOrRandom(pkt gopcap.Packet, packetID uint32) []byte {
 	len := pkt.IncludedLen
 
 	if true || pkt.Data == nil {
-		return recognizableBytes(int(len), packetID)
+		timeMs := pkt.Timestamp.Nanoseconds()/1000000
+		return metaBytes(int(len), packetID, timeMs)
 	}
 
 	return pkt.Data.LinkData().InternetData().TransportData()
+}
+
+func metaBytes(length int, packetID uint32, timeSentInPcap int64) []byte {
+	if length < metaMessageLength {
+		return recognizableBytes(length, packetID)
+	}
+	out := make([]byte, length)
+	binary.BigEndian.PutUint16(out[0:2], pattern)
+	binary.BigEndian.PutUint64(out[2:10], uint64(timeSentInPcap))
+	return out
 }
 
 func recognizableBytes(length int, packetID uint32) []byte {

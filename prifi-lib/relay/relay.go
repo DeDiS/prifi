@@ -338,13 +338,15 @@ func (p *PriFiLibRelayInstance) finalizeUpstreamData() error {
 
 	p.relayState.bitrateStatistics.AddUpstreamCell(int64(len(upstreamPlaintext)))
 
-	// check if we have a latency test message
+	// check if we have a latency test message, or a pcap meta message
 	if len(upstreamPlaintext) >= 2 {
 		pattern := int(binary.BigEndian.Uint16(upstreamPlaintext[0:2]))
 		if pattern == 43690 { // 1010101010101010
 			// then, we simply have to send it down
 			// log.Info("Relay noticed a latency-test message on round", p.relayState.dcnetRoundManager.CurrentRound())
 			p.relayState.PriorityDataForClients <- upstreamPlaintext
+		} else if pattern == 21845 { //0101010101010101
+			log.Fatal("Got meta message", upstreamPlaintext)
 		}
 	}
 

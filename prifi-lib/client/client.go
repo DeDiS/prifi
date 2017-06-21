@@ -356,13 +356,6 @@ func (p *PriFiLibClientInstance) SendUpstreamData() error {
 					currentPacket = p.clientState.pcapReplay.Packets[p.clientState.pcapReplay.currentPacket]
 				}
 
-				if relativeNow > 2912 {
-					for i := 0; i<10; i++ {
-						log.Error(i, p.clientState.pcapReplay.Packets[i].ID, p.clientState.pcapReplay.Packets[i].TimeSent)
-					}
-					log.Fatal("done")
-				}
-
 				fmt.Println("Payload is:")
 				fmt.Println(payload)
 
@@ -399,7 +392,11 @@ func (p *PriFiLibClientInstance) SendUpstreamData() error {
 	}
 
 	//produce the next upstream cell
+	log.Error("Client", p.clientState.RoundNo, "plaintext", upstreamCellContent)
 	upstreamCell := p.clientState.DCNet_FF.ClientEncodeForRound(p.clientState.RoundNo, upstreamCellContent, p.clientState.PayloadLength, p.clientState.MessageHistory)
+
+	log.Error("Client", p.clientState.RoundNo, upstreamCell[0:10])
+
 	//send the data to the relay
 	toSend := &net.CLI_REL_UPSTREAM_DATA{
 		ClientID: p.clientState.ID,
@@ -446,7 +443,7 @@ func (p *PriFiLibClientInstance) Received_REL_CLI_TELL_TRUSTEES_PK(msg net.REL_C
 		}
 		sharedPRNGs[i] = config.CryptoSuite.Cipher(bytes)
 	}
-	//p.clientState.DCNet_FF.CellCoder.ClientSetup(config.CryptoSuite, sharedPRNGs)
+	p.clientState.DCNet_FF.CellCoder.ClientSetup(config.CryptoSuite, sharedPRNGs)
 
 	//then, generate our ephemeral keys (used for shuffling)
 	p.clientState.EphemeralPublicKey, p.clientState.ephemeralPrivateKey = crypto.NewKeyPair()
