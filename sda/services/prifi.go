@@ -232,11 +232,16 @@ func (s *ServiceState) connectToRelay(relayID *network.ServerIdentity, stopChan 
 // It is called by the client and trustee services at startup to
 // announce themselves to the relay.
 func (s *ServiceState) sendConnectionRequest(relayID *network.ServerIdentity) {
-	log.Lvl2("Sending connection request", s.role, s)
+	log.Lvl4("Sending connection request", s.role, s)
 	err := s.SendRaw(relayID, &ConnectionRequest{ProtocolVersion: s.prifiTomlConfig.ProtocolVersion})
 
 	if err != nil {
-		log.Error("Connection failed:", err, ".", s.role, s)
+		if s.role == prifi_protocol.Trustee {
+			log.Lvl3("Connection to relay failed. (I'm a client at address", s, ")")
+		} else {
+			log.Lvl3("Connection to relay failed. (I'm a trustee at address", s, ")")
+
+		}
 	}
 }
 
@@ -244,7 +249,7 @@ func (s *ServiceState) sendConnectionRequest(relayID *network.ServerIdentity) {
 // It is called by the relay services at startup to
 // announce themselves to the trustees.
 func (s *ServiceState) sendHelloMessage(trusteeID *network.ServerIdentity) {
-	log.Lvl2("Sending hello request", s.role, s)
+	log.Lvl4("Sending hello request", s.role, s)
 	err := s.SendRaw(trusteeID, &HelloMsg{})
 
 	if err != nil {

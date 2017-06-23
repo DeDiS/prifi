@@ -18,7 +18,7 @@ import (
 const (
 	TRUSTEE_KILL_SEND_PROCESS int16 = iota // kills the goroutine responsible for sending messages
 	TRUSTEE_RATE_ACTIVE
-	TRUSTEE_RATE_STOPPED
+	TRUSTEE_RATE_HALVED
 )
 
 // TRUSTEE_BASE_SLEEP_TIME is the base unit for how much time the trustee sleeps between sending ciphers to the relay.

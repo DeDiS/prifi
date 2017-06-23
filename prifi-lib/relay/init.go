@@ -80,6 +80,7 @@ func NewRelay(dataOutputEnabled bool, dataForClients chan []byte, dataFromDCNet 
 	relayState.timeStatistics["dcnet-decode"] = prifilog.NewTimeStatistics()
 	relayState.timeStatistics["socks-out"] = prifilog.NewTimeStatistics()
 	relayState.timeStatistics["round-transition"] = prifilog.NewTimeStatistics()
+	relayState.timeStatistics["pcap-delay"] = prifilog.NewTimeStatistics()
 	relayState.PublicKey, relayState.privateKey = crypto.NewKeyPair()
 	relayState.slotScheduler = new(scheduler.BitMaskSlotScheduler_Relay)
 	relayState.bufferManager = new(BufferManager)
@@ -115,7 +116,7 @@ func NewRelay(dataOutputEnabled bool, dataForClients chan []byte, dataFromDCNet 
 const OPENCLOSEDSLOTS_MIN_DELAY_BETWEEN_REQUESTS = 1000 * time.Millisecond
 
 //The time slept between each round
-const PROCESSING_LOOP_SLEEP_TIME = 0 * time.Millisecond
+const PROCESSING_LOOP_SLEEP_TIME = 10 * time.Millisecond
 
 //The timeout before retransmission (UDP)
 const TIMEOUT_PHASE_1 = 1 * time.Second
@@ -173,6 +174,7 @@ type RelayState struct {
 	timeStatistics                    map[string]*prifilog.TimeStatistics
 	slotScheduler                     *scheduler.BitMaskSlotScheduler_Relay
 	dcNetType                         string
+	time0				  uint64
 
 	//Used for verifiable DC-net, part of the dcnet/owned.go
 	VerifiableDCNetKeys [][]byte

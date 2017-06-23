@@ -14,9 +14,9 @@ const metaMessageLength int = 10      // 2bytes pattern + 8bytes timeStamp
 
 // Packet is an ID(Packet number), TimeSent in microsecond, and some Data
 type Packet struct {
-	ID       uint32
-	TimeSent int64 //microseconds
-	Data     []byte
+	ID                        uint32
+	MsSinceBeginningOfCapture uint64 //milliseconds since beginning of capture
+	Data                      []byte
 }
 
 // Parses a .pcap file, and returns all valid packets. A packet is (ID, TimeSent [micros], Data)
@@ -39,14 +39,16 @@ func ParsePCAP(path string) ([]Packet, error) {
 	timeDelta := parsed.Packets[0].Timestamp.Nanoseconds()
 	for id, pkt := range parsed.Packets {
 
+		t := uint64((pkt.Timestamp.Nanoseconds() - timeDelta) / 1000000)
+
 		p := Packet{
 			ID:       uint32(id),
-			Data:     getPayloadOrRandom(pkt, uint32(id)),
-			TimeSent: (pkt.Timestamp.Nanoseconds() - timeDelta) / 1000,
+			Data:     getPayloadOrRandom(pkt, uint32(id), t),
+			MsSinceBeginningOfCapture: t,
 		}
 
 		//basic sanity check
-		if p.TimeSent > 0 && len(p.Data) != 0 {
+		if p.MsSinceBeginningOfCapture > 0 && len(p.Data) != 0 {
 			out = append(out, p)
 		}
 
@@ -55,24 +57,23 @@ func ParsePCAP(path string) ([]Packet, error) {
 	return out, nil
 }
 
-func getPayloadOrRandom(pkt gopcap.Packet, packetID uint32) []byte {
+func getPayloadOrRandom(pkt gopcap.Packet, packetID uint32, msSinceBeginningOfCapture uint64) []byte {
 	len := pkt.IncludedLen
 
 	if true || pkt.Data == nil {
-		timeMs := pkt.Timestamp.Nanoseconds()/1000000
-		return metaBytes(int(len), packetID, timeMs)
+		return metaBytes(int(len), packetID, msSinceBeginningOfCapture)
 	}
 
 	return pkt.Data.LinkData().InternetData().TransportData()
 }
 
-func metaBytes(length int, packetID uint32, timeSentInPcap int64) []byte {
+func metaBytes(length int, packetID uint32, timeSentInPcap uint64) []byte {
 	if length < metaMessageLength {
 		return recognizableBytes(length, packetID)
 	}
 	out := make([]byte, length)
 	binary.BigEndian.PutUint16(out[0:2], pattern)
-	binary.BigEndian.PutUint64(out[2:10], uint64(timeSentInPcap))
+	binary.BigEndian.PutUint64(out[2:10], timeSentInPcap)
 	return out
 }
 

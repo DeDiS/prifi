@@ -75,7 +75,7 @@ type PCAPReplayer struct {
 	PCAPFile   string
 	Packets    []utils.Packet
 	currentPacket int
-	time0 	int64
+	time0 	uint64
 }
 
 // PriFiLibInstance contains the mutable state of a PriFi entity.
@@ -111,7 +111,7 @@ func NewClient(doLatencyTest bool, dataOutputEnabled bool, dataForDCNet chan []b
 	clientState.pcapReplay = &PCAPReplayer{
 		Enabled:    doReplayPcap,
 		PCAPFolder: pcapFolder,
-		time0: MsTimeStampNow(),
+		time0: uint64(MsTimeStampNow()),
 	}
 
 	//init the state machine

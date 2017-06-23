@@ -40,7 +40,6 @@ import (
 	"github.com/lbarman/prifi/utils/timing"
 	"math/rand"
 	"time"
-	"fmt"
 )
 
 // Received_ALL_CLI_SHUTDOWN handles ALL_CLI_SHUTDOWN messages.
@@ -339,27 +338,26 @@ func (p *PriFiLibClientInstance) SendUpstreamData() error {
 			if p.clientState.pcapReplay.Enabled && p.clientState.pcapReplay.currentPacket < len(p.clientState.pcapReplay.Packets) {
 
 				//if it is time to send some packet
-				relativeNow := MsTimeStampNow() - p.clientState.pcapReplay.time0
-
-				log.Error("Now is", MsTimeStampNow(), "Exp started", p.clientState.pcapReplay.time0, ", Relative now is", relativeNow)
+				relativeNow := uint64(MsTimeStampNow()) - p.clientState.pcapReplay.time0
 
 				payload := make([]byte, 0)
 				currentPacket := p.clientState.pcapReplay.Packets[p.clientState.pcapReplay.currentPacket]
 				//all packets >= currentPacket AND <= relativeNow should be sent
 
-				for currentPacket.TimeSent/1000 <= relativeNow && len(payload) + len(currentPacket.Data) <= p.clientState.PayloadLength {
+				for currentPacket.MsSinceBeginningOfCapture <= relativeNow && len(payload) + len(currentPacket.Data) <= p.clientState.PayloadLength {
 
-					log.Error("Adding pcap packet", currentPacket.ID, "length", len(currentPacket.Data), "round", currentRound)
+					log.Error("Adding pcap packet", currentPacket.ID, "sent at", currentPacket.MsSinceBeginningOfCapture, "ms")
 					//add this packet
 					payload = append(payload, currentPacket.Data...)
 					p.clientState.pcapReplay.currentPacket += 1
 					currentPacket = p.clientState.pcapReplay.Packets[p.clientState.pcapReplay.currentPacket]
 				}
 
-				fmt.Println("Payload is:")
-				fmt.Println(payload)
-
 				upstreamCellContent = payload
+
+				if relativeNow > 3000 {
+					log.Fatal("Done")
+				}
 			} else {
 
 				select {
@@ -392,10 +390,7 @@ func (p *PriFiLibClientInstance) SendUpstreamData() error {
 	}
 
 	//produce the next upstream cell
-	log.Error("Client", p.clientState.RoundNo, "plaintext", upstreamCellContent)
 	upstreamCell := p.clientState.DCNet_FF.ClientEncodeForRound(p.clientState.RoundNo, upstreamCellContent, p.clientState.PayloadLength, p.clientState.MessageHistory)
-
-	log.Error("Client", p.clientState.RoundNo, upstreamCell[0:10])
 
 	//send the data to the relay
 	toSend := &net.CLI_REL_UPSTREAM_DATA{
@@ -403,8 +398,6 @@ func (p *PriFiLibClientInstance) SendUpstreamData() error {
 		RoundID:  p.clientState.RoundNo,
 		Data:     upstreamCell}
 
-	fmt.Println("upstreamCell is:")
-	fmt.Println(upstreamCell)
 	p.messageSender.SendToRelayWithLog(toSend, "(round "+strconv.Itoa(int(p.clientState.RoundNo))+")")
 
 	return nil

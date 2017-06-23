@@ -135,13 +135,21 @@ func (p *PriFiLibTrusteeInstance) Send_TRU_REL_DC_CIPHER(rateChan chan int16) {
 
 		default:
 			if currentRate == TRUSTEE_RATE_ACTIVE {
-				roundID, _ = sendData(p, roundID)
+				newRoundID, err := sendData(p, roundID)
+				if err != nil {
+					stop = true
+				}
+				roundID = newRoundID
 
-			} else if currentRate == TRUSTEE_RATE_STOPPED {
+			} else if currentRate == TRUSTEE_RATE_HALVED {
 				if !p.trusteeState.NeverSlowDown { //sorry double neg. If NeverSlowDown = true, we skip this sleep
 					time.Sleep(1 * TRUSTEE_BASE_SLEEP_TIME)
 				}
-				roundID, _ = sendData(p, roundID)
+				newRoundID, err := sendData(p, roundID)
+				if err != nil {
+					stop = true
+				}
+				roundID = newRoundID
 
 			} else {
 				log.Lvl2("Trustee " + strconv.Itoa(p.trusteeState.ID) + " : In unrecognized sending state")
@@ -149,6 +157,7 @@ func (p *PriFiLibTrusteeInstance) Send_TRU_REL_DC_CIPHER(rateChan chan int16) {
 
 		}
 	}
+	log.Lvl2("Trustee " + strconv.Itoa(p.trusteeState.ID) + " : Stopped.")
 }
 
 /*
@@ -160,7 +169,7 @@ or the trustee sends normally because the relay has emptied up enough capacity.
 func (p *PriFiLibTrusteeInstance) Received_REL_TRU_TELL_RATE_CHANGE(msg net.REL_TRU_TELL_RATE_CHANGE) error {
 
 	if msg.WindowCapacity == 0 {
-		p.trusteeState.sendingRate <- TRUSTEE_RATE_STOPPED
+		p.trusteeState.sendingRate <- TRUSTEE_RATE_HALVED
 	} else {
 		p.trusteeState.sendingRate <- TRUSTEE_RATE_ACTIVE
 	}
@@ -175,14 +184,14 @@ It returns the new round number (previous + 1).
 func sendData(p *PriFiLibTrusteeInstance, roundID int32) (int32, error) {
 	data := p.trusteeState.CellCoder.TrusteeEncode(p.trusteeState.PayloadLength)
 
-	log.Error("Trustee", roundID, data[0:10])
-
 	//send the data
 	toSend := &net.TRU_REL_DC_CIPHER{
 		RoundID:   roundID,
 		TrusteeID: p.trusteeState.ID,
 		Data:      data}
-	p.messageSender.SendToRelayWithLog(toSend, "(round "+strconv.Itoa(int(roundID))+")")
+	if !p.messageSender.SendToRelayWithLog(toSend, "(round "+strconv.Itoa(int(roundID))+")") {
+		return -1, errors.New("Could not send")
+	}
 
 	return roundID + 1, nil
 }

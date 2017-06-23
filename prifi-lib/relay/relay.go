@@ -39,6 +39,7 @@ import (
 
 	"github.com/lbarman/prifi/prifi-lib/config"
 	"github.com/lbarman/prifi/prifi-lib/dcnet"
+	prifilog "github.com/lbarman/prifi/prifi-lib/log"
 	"github.com/lbarman/prifi/prifi-lib/net"
 	socks "github.com/lbarman/prifi/prifi-socks"
 	"github.com/lbarman/prifi/utils/timing"
@@ -112,6 +113,7 @@ func (p *PriFiLibRelayInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PARA
 	p.relayState.nVkeysCollected = 0
 	p.relayState.dcnetRoundManager = NewDCNetRoundManager(windowSize)
 	p.relayState.dcNetType = dcNetType
+	p.relayState.time0 = uint64(prifilog.MsTimeStampNow())
 
 	switch dcNetType {
 	case "Simple":
@@ -346,7 +348,14 @@ func (p *PriFiLibRelayInstance) finalizeUpstreamData() error {
 			// log.Info("Relay noticed a latency-test message on round", p.relayState.dcnetRoundManager.CurrentRound())
 			p.relayState.PriorityDataForClients <- upstreamPlaintext
 		} else if pattern == 21845 { //0101010101010101
-			log.Fatal("Got meta message", upstreamPlaintext)
+			timestamp := int64(binary.BigEndian.Uint64(upstreamPlaintext[2:10]))
+			now := prifilog.MsTimeStampNow() - int64(p.relayState.time0)
+			diff := now - timestamp
+
+			log.Lvl2("Got a PCAP meta-message at", now, ", delay since original is", diff, "ms")
+			p.relayState.timeStatistics["pcap-delay"].AddTime(diff)
+
+			time.Sleep(5*time.Second)
 		}
 	}
 
