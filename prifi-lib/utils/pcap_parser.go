@@ -20,7 +20,7 @@ type Packet struct {
 }
 
 // Parses a .pcap file, and returns all valid packets. A packet is (ID, TimeSent [micros], Data)
-func ParsePCAP(path string) ([]Packet, error) {
+func ParsePCAP(path string, maxPayloadLength int) ([]Packet, error) {
 	pcapfile, err := os.Open(path)
 	if err != nil {
 		return nil, errors.New("Cannot open" + path + "error is" + err.Error())
@@ -40,18 +40,32 @@ func ParsePCAP(path string) ([]Packet, error) {
 	for id, pkt := range parsed.Packets {
 
 		t := uint64((pkt.Timestamp.Nanoseconds() - timeDelta) / 1000000)
+		data := getPayloadOrRandom(pkt, uint32(id), t)
+		remainingLen := len(data)
 
+		//maybe this packet is bigger than the payloadlength. Then, generate many packets
+		for remainingLen > maxPayloadLength {
+			payload := make([]byte, maxPayloadLength) // all zeros, so it doesn't trigger relay's pattern match
+			p2 := Packet{
+				ID:       uint32(id),
+				Data:     payload,
+				MsSinceBeginningOfCapture: t,
+			}
+			out = append(out, p2)
+			remainingLen -= maxPayloadLength
+		}
+
+		//add the last packet, that will trigger the relay pattern match
+		payload := data
+		if len(payload) > maxPayloadLength {
+			payload = payload[0:maxPayloadLength]
+		}
 		p := Packet{
 			ID:       uint32(id),
-			Data:     getPayloadOrRandom(pkt, uint32(id), t),
+			Data:     payload,
 			MsSinceBeginningOfCapture: t,
 		}
-
-		//basic sanity check
-		if p.MsSinceBeginningOfCapture > 0 && len(p.Data) != 0 {
-			out = append(out, p)
-		}
-
+		out = append(out, p)
 	}
 
 	return out, nil

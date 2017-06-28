@@ -104,7 +104,7 @@ func (p *PriFiLibClientInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PAR
 	//we know our client number, if needed, parse the pcap for replay
 	if p.clientState.pcapReplay.Enabled {
 		p.clientState.pcapReplay.PCAPFile = p.clientState.pcapReplay.PCAPFolder + "client" + strconv.Itoa(clientID) + ".pcap"
-		packets, err := utils.ParsePCAP(p.clientState.pcapReplay.PCAPFile)
+		packets, err := utils.ParsePCAP(p.clientState.pcapReplay.PCAPFile, p.clientState.PayloadLength)
 		if err != nil {
 			log.Error("Requested PCAP Replay, but could not parse; Error is", err)
 		}
@@ -344,20 +344,22 @@ func (p *PriFiLibClientInstance) SendUpstreamData() error {
 				currentPacket := p.clientState.pcapReplay.Packets[p.clientState.pcapReplay.currentPacket]
 				//all packets >= currentPacket AND <= relativeNow should be sent
 
+				log.Lvl2("pcap", currentPacket.MsSinceBeginningOfCapture,relativeNow, "len", len(payload), len(currentPacket.Data), "maxlen", p.clientState.PayloadLength)
+
 				for currentPacket.MsSinceBeginningOfCapture <= relativeNow && len(payload) + len(currentPacket.Data) <= p.clientState.PayloadLength {
 
-					log.Error("Adding pcap packet", currentPacket.ID, "sent at", currentPacket.MsSinceBeginningOfCapture, "ms")
+					log.Lvl2("Adding pcap packet", p.clientState.pcapReplay.currentPacket, "/", currentPacket.ID, "sent at", currentPacket.MsSinceBeginningOfCapture, "ms")
 					//add this packet
 					payload = append(payload, currentPacket.Data...)
 					p.clientState.pcapReplay.currentPacket += 1
 					currentPacket = p.clientState.pcapReplay.Packets[p.clientState.pcapReplay.currentPacket]
 				}
 
-				upstreamCellContent = payload
-
-				if relativeNow > 3000 {
-					log.Fatal("Done")
+				if len(payload) != 0 {
+					log.Lvl2("pcap: Next packet is", p.clientState.pcapReplay.currentPacket, "ts", p.clientState.pcapReplay.Packets[p.clientState.pcapReplay.currentPacket].MsSinceBeginningOfCapture)
 				}
+
+				upstreamCellContent = payload
 			} else {
 
 				select {

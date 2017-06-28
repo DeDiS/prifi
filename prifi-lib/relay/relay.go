@@ -354,8 +354,6 @@ func (p *PriFiLibRelayInstance) finalizeUpstreamData() error {
 
 			log.Lvl2("Got a PCAP meta-message at", now, ", delay since original is", diff, "ms")
 			p.relayState.timeStatistics["pcap-delay"].AddTime(diff)
-
-			time.Sleep(5*time.Second)
 		}
 	}
 
