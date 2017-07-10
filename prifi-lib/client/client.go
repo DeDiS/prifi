@@ -342,21 +342,15 @@ func (p *PriFiLibClientInstance) SendUpstreamData() error {
 
 				payload := make([]byte, 0)
 				currentPacket := p.clientState.pcapReplay.Packets[p.clientState.pcapReplay.currentPacket]
+
 				//all packets >= currentPacket AND <= relativeNow should be sent
-
-				log.Lvl2("pcap", currentPacket.MsSinceBeginningOfCapture,relativeNow, "len", len(payload), len(currentPacket.Data), "maxlen", p.clientState.PayloadLength)
-
-				for currentPacket.MsSinceBeginningOfCapture <= relativeNow && len(payload) + len(currentPacket.Data) <= p.clientState.PayloadLength {
+				for currentPacket.MsSinceBeginningOfCapture <= relativeNow && len(payload)+len(currentPacket.Data) <= p.clientState.PayloadLength {
 
 					log.Lvl2("Adding pcap packet", p.clientState.pcapReplay.currentPacket, "/", currentPacket.ID, "sent at", currentPacket.MsSinceBeginningOfCapture, "ms")
 					//add this packet
 					payload = append(payload, currentPacket.Data...)
-					p.clientState.pcapReplay.currentPacket += 1
+					p.clientState.pcapReplay.currentPacket++
 					currentPacket = p.clientState.pcapReplay.Packets[p.clientState.pcapReplay.currentPacket]
-				}
-
-				if len(payload) != 0 {
-					log.Lvl2("pcap: Next packet is", p.clientState.pcapReplay.currentPacket, "ts", p.clientState.pcapReplay.Packets[p.clientState.pcapReplay.currentPacket].MsSinceBeginningOfCapture)
 				}
 
 				upstreamCellContent = payload

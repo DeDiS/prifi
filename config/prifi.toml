@@ -1,4 +1,4 @@
-CellSizeUp = 100
+CellSizeUp = 1000
 CellSizeDown = 1000
 RelayWindowSize = 1
 RelayUseDummyDataDown = false

@@ -1,16 +1,16 @@
 package utils
 
 import (
+	"encoding/binary"
 	"errors"
 	"github.com/Lukasa/gopcap"
 	"gopkg.in/dedis/onet.v1/log"
 	"math/rand"
 	"os"
-	"encoding/binary"
 )
 
 const pattern uint16 = uint16(21845) //0101010101010101
-const metaMessageLength int = 10      // 2bytes pattern + 8bytes timeStamp
+const metaMessageLength int = 15     // 2bytes pattern + 4bytes ID + 8bytes timeStamp + 1 bit fragmentation
 
 // Packet is an ID(Packet number), TimeSent in microsecond, and some Data
 type Packet struct {
@@ -40,15 +40,13 @@ func ParsePCAP(path string, maxPayloadLength int) ([]Packet, error) {
 	for id, pkt := range parsed.Packets {
 
 		t := uint64((pkt.Timestamp.Nanoseconds() - timeDelta) / 1000000)
-		data := getPayloadOrRandom(pkt, uint32(id), t)
-		remainingLen := len(data)
+		remainingLen := int(pkt.IncludedLen)
 
 		//maybe this packet is bigger than the payloadlength. Then, generate many packets
 		for remainingLen > maxPayloadLength {
-			payload := make([]byte, maxPayloadLength) // all zeros, so it doesn't trigger relay's pattern match
 			p2 := Packet{
-				ID:       uint32(id),
-				Data:     payload,
+				ID:   uint32(id),
+				Data: metaBytes(maxPayloadLength, uint32(id), t, true),
 				MsSinceBeginningOfCapture: t,
 			}
 			out = append(out, p2)
@@ -56,13 +54,12 @@ func ParsePCAP(path string, maxPayloadLength int) ([]Packet, error) {
 		}
 
 		//add the last packet, that will trigger the relay pattern match
-		payload := data
-		if len(payload) > maxPayloadLength {
-			payload = payload[0:maxPayloadLength]
+		if remainingLen < metaMessageLength {
+			remainingLen = metaMessageLength
 		}
 		p := Packet{
-			ID:       uint32(id),
-			Data:     payload,
+			ID:   uint32(id),
+			Data: metaBytes(remainingLen, uint32(id), t, false),
 			MsSinceBeginningOfCapture: t,
 		}
 		out = append(out, p)
@@ -75,19 +72,24 @@ func getPayloadOrRandom(pkt gopcap.Packet, packetID uint32, msSinceBeginningOfCa
 	len := pkt.IncludedLen
 
 	if true || pkt.Data == nil {
-		return metaBytes(int(len), packetID, msSinceBeginningOfCapture)
+		return metaBytes(int(len), packetID, msSinceBeginningOfCapture, false)
 	}
 
 	return pkt.Data.LinkData().InternetData().TransportData()
 }
 
-func metaBytes(length int, packetID uint32, timeSentInPcap uint64) []byte {
+func metaBytes(length int, packetID uint32, timeSentInPcap uint64, isNonFinalPacket bool) []byte {
 	if length < metaMessageLength {
 		return recognizableBytes(length, packetID)
 	}
 	out := make([]byte, length)
 	binary.BigEndian.PutUint16(out[0:2], pattern)
-	binary.BigEndian.PutUint64(out[2:10], timeSentInPcap)
+	binary.BigEndian.PutUint32(out[2:6], packetID)
+	binary.BigEndian.PutUint64(out[6:14], timeSentInPcap)
+	out[14] = byte(0)
+	if isNonFinalPacket {
+		out[14] = byte(1)
+	}
 	return out
 }
 

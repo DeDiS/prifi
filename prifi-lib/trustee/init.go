@@ -84,7 +84,7 @@ type TrusteeState struct {
 	sendingRate      chan int16
 	sharedSecrets    []abstract.Point
 	TrusteeID        int
-	NeverSlowDown 	 bool //ignore the sleep in the sending function if rate is STOPPED
+	NeverSlowDown    bool //ignore the sleep in the sending function if rate is STOPPED
 }
 
 // NeffShuffleResult holds the result of the NeffShuffle,

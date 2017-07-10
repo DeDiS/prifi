@@ -174,7 +174,8 @@ type RelayState struct {
 	timeStatistics                    map[string]*prifilog.TimeStatistics
 	slotScheduler                     *scheduler.BitMaskSlotScheduler_Relay
 	dcNetType                         string
-	time0				  uint64
+	time0                             uint64
+	pcapLogger			  *utils.PCAPLog
 
 	//Used for verifiable DC-net, part of the dcnet/owned.go
 	VerifiableDCNetKeys [][]byte
