@@ -23,6 +23,7 @@ package client
 
 import (
 	"errors"
+	"github.com/lbarman/prifi/datasources"
 	"github.com/lbarman/prifi/prifi-lib/crypto"
 	prifilog "github.com/lbarman/prifi/prifi-lib/log"
 	"github.com/lbarman/prifi/prifi-lib/net"
@@ -31,21 +32,15 @@ import (
 	"gopkg.in/dedis/onet.v1/log"
 	"reflect"
 	"strings"
-	"time"
 )
 
 // ClientState contains the mutable state of the client.
 type ClientState struct {
 	DCNet_FF                  *DCNet_FastForwarder
 	currentState              int16
-	DataForDCNet              chan []byte //Data to the relay : VPN / SOCKS should put data there !
-	NextDataForDCNet          *[]byte     //if not nil, send this before polling DataForDCNet
-	DataFromDCNet             chan []byte //Data from the relay : VPN / SOCKS should read data from there !
-	DataOutputEnabled         bool        //if FALSE, nothing will be written to DataFromDCNet
 	ephemeralPrivateKey       abstract.Scalar
 	EphemeralPublicKey        abstract.Point
 	ID                        int
-	LatencyTest               *prifilog.LatencyTests
 	MySlot                    int
 	Name                      string
 	nClients                  int
@@ -62,6 +57,7 @@ type ClientState struct {
 	StartStopReceiveBroadcast chan bool
 	timeStatistics            map[string]*prifilog.TimeStatistics
 	pcapReplay                *PCAPReplayer
+	DataSource	 	  datasources.DataSource
 
 	//concurrent stuff
 	RoundNo           int32
@@ -84,27 +80,19 @@ type PriFiLibClientInstance struct {
 }
 
 // NewClient creates a new PriFi client entity state.
-func NewClient(doLatencyTest bool, dataOutputEnabled bool, dataForDCNet chan []byte, dataFromDCNet chan []byte, doReplayPcap bool, pcapFolder string, msgSender *net.MessageSenderWrapper) *PriFiLibClientInstance {
+func NewClient(doLatencyTest bool, dataOutputEnabled bool, dataSource DataSource, doReplayPcap bool, pcapFolder string, msgSender *net.MessageSenderWrapper) *PriFiLibClientInstance {
 
 	clientState := new(ClientState)
 
 	//instantiates the static stuff
 	clientState.PublicKey, clientState.privateKey = crypto.NewKeyPair()
 	//clientState.StartStopReceiveBroadcast = make(chan bool) //this should stay nil, !=nil -> we have a listener goroutine active
-	clientState.LatencyTest = &prifilog.LatencyTests{
-		DoLatencyTests:       doLatencyTest,
-		LatencyTestsInterval: 5 * time.Second,
-		NextLatencyTest:      time.Now(),
-		LatencyTestsToSend:   make([]*prifilog.LatencyTestToSend, 0),
-	}
+
 	clientState.timeStatistics = make(map[string]*prifilog.TimeStatistics)
 	clientState.timeStatistics["latency-msg-stayed-in-buffer"] = prifilog.NewTimeStatistics()
 	clientState.timeStatistics["measured-latency"] = prifilog.NewTimeStatistics()
 	clientState.timeStatistics["round-processing"] = prifilog.NewTimeStatistics()
-	clientState.DataForDCNet = dataForDCNet
-	clientState.NextDataForDCNet = nil
-	clientState.DataFromDCNet = dataFromDCNet
-	clientState.DataOutputEnabled = dataOutputEnabled
+	clientState.DataSource = dataSource
 	clientState.DCNet_FF = new(DCNet_FastForwarder)
 	clientState.pcapReplay = &PCAPReplayer{
 		Enabled:    doReplayPcap,

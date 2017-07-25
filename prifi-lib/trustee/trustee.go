@@ -138,7 +138,7 @@ func (p *PriFiLibTrusteeInstance) Send_TRU_REL_DC_CIPHER(rateChan chan int16) {
 				roundID, _ = sendData(p, roundID)
 
 			} else if currentRate == TRUSTEE_RATE_STOPPED {
-				time.Sleep(0 * TRUSTEE_BASE_SLEEP_TIME)
+				time.Sleep(TRUSTEE_BASE_SLEEP_TIME)
 				roundID, _ = sendData(p, roundID)
 
 			} else {

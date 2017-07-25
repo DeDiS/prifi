@@ -190,10 +190,9 @@ func (p *PriFiLibClientInstance) ProcessDownStreamData(msg net.REL_CLI_DOWNSTREA
 	//if it's just one byte, no data
 	if len(msg.Data) > 1 {
 
-		//pass the data to the VPN/SOCKS5 proxy, if enabled
-		if p.clientState.DataOutputEnabled {
-			p.clientState.DataFromDCNet <- msg.Data
-		}
+		//pass the data to the VPN/SOCKS5 proxy
+		p.clientState.DataSource.SendDataToSource(msg.RoundID, msg.Data)
+
 		//test if it is the answer from our ping (for latency test)
 		if p.clientState.LatencyTest.DoLatencyTests && len(msg.Data) > 2 {
 

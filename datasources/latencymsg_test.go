@@ -1,4 +1,4 @@
-package log
+package datasources
 
 import (
 	"encoding/hex"
@@ -9,17 +9,17 @@ import (
 
 func TestLatencyMessages(t *testing.T) {
 
-	latencyTests := &LatencyTests{}
+	latencyTests := make([]*LatencyTestToSend, 0)
 
 	now := time.Now()
 	newLatTest := &LatencyTestToSend{
 		CreatedAt: now.Add(-10 * time.Second),
 	}
-	latencyTests.LatencyTestsToSend = append(latencyTests.LatencyTestsToSend, newLatTest)
+	latencyTests = append(latencyTests, newLatTest)
 	newLatTest = &LatencyTestToSend{
 		CreatedAt: now.Add(-1 * time.Second),
 	}
-	latencyTests.LatencyTestsToSend = append(latencyTests.LatencyTestsToSend, newLatTest)
+	latencyTests = append(latencyTests, newLatTest)
 
 	clientID := 2
 	roundID := int32(4)
@@ -27,8 +27,8 @@ func TestLatencyMessages(t *testing.T) {
 	logFn := func(timeDiff int64) {
 		fmt.Println(timeDiff)
 	}
-	bytes, outMsgs := LatencyMessagesToBytes(latencyTests.LatencyTestsToSend, clientID, roundID, payloadLength, logFn)
-	latencyTests.LatencyTestsToSend = outMsgs
+	bytes, outMsgs := LatencyMessagesToBytes(latencyTests, clientID, roundID, payloadLength, logFn)
+	latencyTests = outMsgs
 
 	fmt.Println(hex.Dump(bytes))
 
