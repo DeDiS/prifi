@@ -146,8 +146,16 @@ func (s *SimulationService) Node(config *onet.SimulationConfig) error {
 		time.Sleep(5 * time.Second)
 		err = service.StartTrustee(group)
 	} else {
-		log.Lvl1("Initiating this node (index ", index, ") as client")
-		time.Sleep(5 * time.Second)
+		if s.PrifiTomlConfig.SimulDelayBetweenClients > 0 {
+			clientIndex := index - 1 - s.NTrustees
+			timeToSleep := 5 + s.PrifiTomlConfig.SimulDelayBetweenClients * clientIndex
+			log.Lvl1("Initiating this node (index ", index, ") as client, but sleeping", timeToSleep, "sec before")
+			time.Sleep(time.Duration(timeToSleep) * time.Second)
+			log.Lvl1("Initiating this node (index ", index, ") as client (done sleeping)")
+		} else {
+			log.Lvl1("Initiating this node (index ", index, ") as client")
+			time.Sleep(5 * time.Second)
+		}
 		err = service.StartClient(group)
 	}
 
