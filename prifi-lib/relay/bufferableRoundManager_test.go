@@ -1,28 +1,125 @@
 package relay
 
 import (
+"testing"
 	"bytes"
 	"gopkg.in/dedis/crypto.v0/random"
-	"testing"
+	"gopkg.in/dedis/onet.v1/log"
 )
+
+/*
+ * What we need to test:
+ * - Can open several rounds; eg, open rounds 0, 1, 2, 3
+ * - Round ID is always the smallest open round
+ * - Can buffer (and re-use) data from futur rounds
+ * - Past and closed rounds have their data cleared
+ * - When a round is closed, it prints the time spent in the round
+ * - Ability to store a round schedule; a round can be closed in advance (eg. we're in round 1, and we get "round 3 is closed"). Then we never open round 3
+ * - Must be able to tell how much data we have in one round
+ * - Must sent the rate limit correctly if enabled
+ */
+
+func TestRoundSuccessionWithSchedule(test *testing.T) {
+
+	window := 10
+	nClients := 1
+	nTrustees := 1
+	data := genDataSlice()
+	b := NewBufferableRoundManager(nClients, nTrustees, window)
+
+	b.OpenNextRound()
+
+	if b.CurrentRound() != 0 {
+		test.Error("Should be in round 0")
+	}
+
+	//requesting the next downstream round to send should not return an open round
+	if b.NextRoundToOpen() != 1 {
+		test.Error("NextRoundToOpen should be equal to 1", b.NextRoundToOpen())
+	}
+	//but should still return the same number
+	if b.NextRoundToOpen() != 1 {
+		test.Error("NextRoundToOpen should still be equal to 1", b.NextRoundToOpen())
+	}
+
+	//opening another round should not change current round
+	b.OpenNextRound()
+	if b.CurrentRound() != 0 {
+		test.Error("Should be in round 0")
+	}
+	err := b.CloseRound()
+	if err == nil {
+		test.Error("Should not close round without the appropriate ciphers")
+	}
+	b.AddClientCipher(int32(0), 0, data)
+	err = b.CloseRound()
+	if err == nil {
+		test.Error("Should not close round without the appropriate ciphers")
+	}
+	b.AddTrusteeCipher(int32(0), 0, data)
+	err = b.CloseRound()
+	if err != nil {
+		test.Error("Should be able to close round")
+	}
+
+	if b.CurrentRound() != 1 {
+		test.Error("Should be in round 1 now that round 0 was closed")
+	}
+
+	//requesting the next downstream round to send should not return an open round
+	if b.NextRoundToOpen() != 2 {
+		test.Error("NextRoundToOpen should be equal to 2", b.NextRoundToOpen())
+	}
+
+	//setting a round to closed should skip it
+	s := make(map[int32]bool, 2)
+	s[2] = false
+	s[4] = false
+	b.SetStoredRoundSchedule(s)
+	if b.storedRoundsSchedule == nil || len(b.storedRoundsSchedule) != len(s) || b.storedRoundsSchedule[0] != s[0] {
+		test.Error("b.storedRoundsSchedule should be s")
+	}
+	if b.NextRoundToOpen() != 3 {
+		test.Error("NextRoundToOpen should be equal to 3", b.NextRoundToOpen())
+	}
+
+	//should be able to open a round while skipping another round
+	b.OpenNextRound() // round 3
+	b.OpenNextRound() // round 5
+	if b.CurrentRound() != 1 {
+		test.Error("Should be in round 1")
+	}
+	b.AddClientCipher(int32(1), 0, data)
+	b.AddTrusteeCipher(int32(1), 0, data)
+	b.CloseRound()
+	if b.CurrentRound() != 3 {
+		test.Error("Should be in round 3")
+	}
+	b.AddClientCipher(int32(3), 0, data)
+	b.AddTrusteeCipher(int32(3), 0, data)
+	b.CloseRound()
+	b.OpenNextRound()
+	if b.CurrentRound() != 5 {
+		test.Error("Should be in round 5", b.CurrentRound())
+	}
+
+	//at this point, all rounds were closed, and we are out of the map - should return 6
+	if b.NextRoundToOpen() != 6 {
+		test.Error("NextRoundToOpen should be equal to 6", b.NextRoundToOpen())
+	}
+}
 
 func genDataSlice() []byte {
 	return random.Bits(100, false, random.Stream)
 }
 
-func TestBuffers(test *testing.T) {
+func TestCipherBuffering(test *testing.T) {
 
-	b := new(BufferManager)
-
-	err := b.Init(0, 0)
-	if err == nil {
-		test.Error("Shouldn't be able to init a bufferManager with 0 client/trustees")
-	}
-
-	err = b.Init(1, 1)
-	if err != nil {
-		test.Error("Should be able to init a bufferManager")
-	}
+	window := 10
+	nClients := 1
+	nTrustees := 1
+	b := NewBufferableRoundManager(nClients, nTrustees, window)
+	b.OpenNextRound()
 
 	//check the initial state
 	if b.CurrentRound() != 0 {
@@ -35,7 +132,7 @@ func TestBuffers(test *testing.T) {
 	if len(c) != 1 || len(t) != 1 {
 		test.Error("BufferManager did not compute correctly the missing ciphers")
 	}
-	_, _, err = b.FinalizeRound()
+	err := b.CloseRound()
 	if err == nil {
 		test.Error("BufferManager should not be able to finalize round")
 	}
@@ -62,7 +159,7 @@ func TestBuffers(test *testing.T) {
 	if b.NumberOfBufferedCiphers(0) != 1 {
 		test.Error("Number of ciphers for trustee 0 should be 1")
 	}
-	_, _, err = b.FinalizeRound()
+	err = b.CloseRound()
 	if err == nil {
 		test.Error("BufferManager should not be able to finalize round")
 	}
@@ -83,7 +180,11 @@ func TestBuffers(test *testing.T) {
 	if len(c) != 0 || len(t) != 0 {
 		test.Error("BufferManager did not compute correctly the missing ciphers")
 	}
-	clientSlices, trusteesSlices, err := b.FinalizeRound()
+	clientSlices, trusteesSlices, err := b.CollectRoundData()
+	if err != nil {
+		test.Error("BufferManager should be able to finalize round")
+	}
+	err = b.CloseRound()
 	if err != nil {
 		test.Error("BufferManager should be able to finalize round")
 	}
@@ -94,12 +195,14 @@ func TestBuffers(test *testing.T) {
 		test.Error("Trustee slice should be the same")
 	}
 
+	b.OpenNextRound()
+
 	//post round
 	if b.NumberOfBufferedCiphers(0) != 0 {
 		test.Error("Number of ciphers for trustee 0 should be 0")
 	}
 	if b.CurrentRound() != 1 {
-		test.Error("BufferManager should now be in round 1")
+		test.Error("BufferManager should now be in round 1, but is in round", b.CurrentRound())
 	}
 	if b.HasAllCiphersForCurrentRound() {
 		test.Error("BufferManager does not have all ciphers for round 1")
@@ -124,6 +227,10 @@ func TestBuffers(test *testing.T) {
 	}
 
 	b.AddClientCipher(1, 0, clientSlice1)
+
+	b.OpenNextRound() //round 2
+	b.OpenNextRound() //round 3
+
 	b.AddClientCipher(2, 0, clientSlice2)
 	b.AddTrusteeCipher(3, 0, trusteeSlice3)
 
@@ -164,7 +271,11 @@ func TestBuffers(test *testing.T) {
 	//r3[,t]
 	//add one trustee
 	b.AddTrusteeCipher(1, 0, trusteeSlice1)
-	clientSlices, trusteesSlices, err = b.FinalizeRound()
+	clientSlices, trusteesSlices, err = b.CollectRoundData()
+	if err != nil {
+		test.Error("Should be able to finalize without error")
+	}
+	err = b.CloseRound()
 	if err != nil {
 		test.Error("Should be able to finalize without error")
 	}
@@ -186,6 +297,7 @@ func TestBuffers(test *testing.T) {
 	}
 	c, t = b.MissingCiphersForCurrentRound()
 	if len(c) != 0 || len(t) != 1 {
+		log.Error(b.CurrentRound(), b.trusteeAckMap, b.clientAckMap)
 		test.Error("BufferManager did not compute correctly the missing ciphers")
 	}
 
@@ -193,7 +305,14 @@ func TestBuffers(test *testing.T) {
 	//r3[,t]
 	//add one trustee
 	b.AddTrusteeCipher(2, 0, trusteeSlice2)
-	clientSlices, trusteesSlices, err = b.FinalizeRound()
+	clientSlices, trusteesSlices, err = b.CollectRoundData()
+	if err != nil {
+		test.Error("Should be able to finalize without error")
+	}
+	err = b.CloseRound()
+	if err != nil {
+		test.Error("Should be able to finalize without error")
+	}
 	if err != nil {
 		test.Error("Should be able to finalize without error")
 	}
@@ -230,9 +349,13 @@ func TestBuffers(test *testing.T) {
 
 func TestRateLimiter(test *testing.T) {
 
-	b := new(BufferManager)
-	low := 1
-	high := 3
+	window := 100
+	nClients := 1
+	nTrustees := 1
+	b := NewBufferableRoundManager(nClients, nTrustees, window)
+
+	low := 1 //resume sending when <= low
+	high := 3 //stop sending when >= high
 
 	stopCalled := false
 	resumeCalled := false
@@ -244,49 +367,65 @@ func TestRateLimiter(test *testing.T) {
 		resumeCalled = true
 	}
 
-	b.Init(0, 1)
 	b.AddRateLimiter(low, high, stopFn, resFn)
-	trusteeSlice := genDataSlice()
+	data := genDataSlice()
 
-	b.AddTrusteeCipher(0, 0, trusteeSlice)
+	b.OpenNextRound()
+	b.AddTrusteeCipher(0, 0, data)
 	if !resumeCalled {
 		test.Error("Resume should have been called")
 	}
 	resumeCalled = false
 
-	b.AddTrusteeCipher(1, 0, trusteeSlice)
-	b.AddTrusteeCipher(2, 0, trusteeSlice)
-	b.AddTrusteeCipher(3, 0, trusteeSlice)
+	b.OpenNextRound()
+	b.AddTrusteeCipher(1, 0, data)
+	b.OpenNextRound()
+	b.AddTrusteeCipher(2, 0, data)
+	b.OpenNextRound()
+	b.AddTrusteeCipher(3, 0, data)
 	if !stopCalled {
 		test.Error("Stop should have been called")
 	}
 	stopCalled = false
-	b.AddTrusteeCipher(4, 0, trusteeSlice)
+	b.OpenNextRound()
+	b.AddTrusteeCipher(4, 0, data)
 	if stopCalled {
 		test.Error("Stop not should have been called again")
 	}
 	stopCalled = false
 
-	b.AddClientCipher(0, 0, trusteeSlice)
-	b.FinalizeRound()
+	b.AddClientCipher(0, 0, data)
+	err := b.CloseRound()
+	if err != nil {
+		test.Error(err)
+	}
 	if stopCalled {
 		test.Error("Stop not should have been called again (2)")
 	}
 	stopCalled = false
 
-	b.AddClientCipher(1, 0, trusteeSlice)
-	b.FinalizeRound()
+	b.AddClientCipher(1, 0, data)
+	err = b.CloseRound()
+	if err != nil {
+		test.Error(err)
+	}
 	if stopCalled {
 		test.Error("Stop not should have been called again (3)")
 	}
 	stopCalled = false
-	b.AddClientCipher(2, 0, trusteeSlice)
-	b.FinalizeRound()
+	b.AddClientCipher(2, 0, data)
+	err = b.CloseRound()
+	if err != nil {
+		test.Error(err)
+	}
 	if stopCalled {
 		test.Error("Stop should not have been called")
 	}
-	b.AddClientCipher(3, 0, trusteeSlice)
-	b.FinalizeRound()
+	b.AddClientCipher(3, 0, data)
+	err = b.CloseRound()
+	if err != nil {
+		test.Error(err)
+	}
 
 	if !resumeCalled {
 		test.Error("Resume should have been called")

@@ -187,8 +187,8 @@ func TestRelayRun1(t *testing.T) {
 	if rs.UseUDP != true {
 		t.Error("UseUDP was not set correctly")
 	}
-	rs.dcnetRoundManager.OpenRound(0)
-	if rs.dcnetRoundManager.NextDownStreamRoundToSent() != 1 {
+	rs.bufferableRoundManager.OpenNextRound()
+	if rs.bufferableRoundManager.NextRoundToOpen() != 1 {
 		t.Error("nextDownStreamRoundToSend was not set correctly; it should be equal to 1 since round 0 is a half-round, and does not contain downstream data from relay")
 	}
 	if rs.WindowSize != 1 {
@@ -197,13 +197,10 @@ func TestRelayRun1(t *testing.T) {
 	if rs.dcNetType != "Simple" {
 		t.Error("DCNetType was not set correctly")
 	}
-	if rs.bufferManager == nil {
-		t.Error("bufferManager was not set correctly")
-	}
-	if rs.bufferManager.resumeFunction == nil {
+	if rs.bufferableRoundManager.resumeFunction == nil {
 		t.Error("bufferManager.resumeFunction was not set correctly")
 	}
-	if rs.bufferManager.stopFunction == nil {
+	if rs.bufferableRoundManager.stopFunction == nil {
 		t.Error("bufferManager.stopFunction was not set correctly")
 	}
 	if relay.stateMachine.State() != "COLLECTING_TRUSTEES_PKS" {
@@ -392,8 +389,10 @@ func TestRelayRun1(t *testing.T) {
 	}
 
 	//not enough to change round !
-	if rs.dcnetRoundManager.currentRound != 0 {
-		t.Error("Should still be in round 0, no data from relay")
+	log.Fatal("here2")
+	rs.bufferableRoundManager.OpenNextRound()
+	if rs.bufferableRoundManager.CurrentRound() != 0 {
+		t.Error("Should still be in round 0, no data from trustee")
 	}
 
 	msg18 := net.TRU_REL_DC_CIPHER{
@@ -569,8 +568,9 @@ func TestRelayRun2(t *testing.T) {
 	}
 
 	//not enough to change round !
-	if rs.dcnetRoundManager.currentRound != 0 {
-		t.Error("Should still be in round 0, no data from relay")
+	rs.bufferableRoundManager.OpenNextRound()
+	if rs.bufferableRoundManager.CurrentRound() != 0 {
+		t.Error("Should still be in round 0, no data from trustee")
 	}
 
 	msg18 := net.CLI_REL_UPSTREAM_DATA{
@@ -783,12 +783,14 @@ func TestRelayRun3(t *testing.T) {
 	}
 	_ = msg16.(*net.REL_CLI_TELL_EPH_PKS_AND_TRUSTEES_SIG)
 
+
 	// should receive a TRU_REL_DC_CIPHER
 	msg17 := net.TRU_REL_DC_CIPHER{
 		TrusteeID: 0,
 		RoundID:   0,
 		Data:      make([]byte, upCellSize),
 	}
+
 	if err := relay.ReceivedMessage(msg17); err != nil {
 		t.Error("Relay should be able to receive this message, but", err)
 	}
@@ -800,7 +802,6 @@ func TestRelayRun3(t *testing.T) {
 	if err := relay.ReceivedMessage(msg17); err != nil {
 		t.Error("Relay should be able to receive this message, but", err)
 	}
-
 	// should receive a CLI_REL_UPSTREAM_DATA
 	currentTime := client.MsTimeStampNow()
 	latencyMessage := []byte{170, 170, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0}
@@ -810,6 +811,7 @@ func TestRelayRun3(t *testing.T) {
 		RoundID:  0,
 		Data:     latencyMessage,
 	}
+	//error here !
 	if err := relay.ReceivedMessage(msg18); err != nil {
 		t.Error("Relay should be able to receive this message, but", err)
 	}

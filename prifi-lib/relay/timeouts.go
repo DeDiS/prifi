@@ -18,7 +18,7 @@ func (p *PriFiLibRelayInstance) checkIfRoundHasEndedAfterTimeOut_Phase1(roundID 
 
 	time.Sleep(TIMEOUT_PHASE_1)
 
-	if !p.relayState.dcnetRoundManager.CurrentRoundIsStill(roundID) {
+	if !p.relayState.bufferableRoundManager.IsRoundOpenend(roundID) {
 		return //everything went well, it's great !
 	}
 
@@ -28,7 +28,7 @@ func (p *PriFiLibRelayInstance) checkIfRoundHasEndedAfterTimeOut_Phase1(roundID 
 
 	log.Error("waitAndCheckIfClientsSentData : We seem to be stuck in round", roundID, ". Phase 1 timeout.")
 
-	missingClientCiphers, missingTrusteesCiphers := p.relayState.bufferManager.MissingCiphersForCurrentRound()
+	missingClientCiphers, missingTrusteesCiphers := p.relayState.bufferableRoundManager.MissingCiphersForCurrentRound()
 
 	//If we're using UDP, client might have missed the broadcast, re-sending
 	if p.relayState.UseUDP {
@@ -41,7 +41,7 @@ func (p *PriFiLibRelayInstance) checkIfRoundHasEndedAfterTimeOut_Phase1(roundID 
 			}
 		*/
 		log.Error("Relay : Clients", missingClientCiphers, "didn't sent us is cipher for round "+strconv.Itoa(int(roundID))+". Phase 1 timeout. Re-sending...")
-		dataAlreadySent := p.relayState.dcnetRoundManager.GetDataAlreadySent(roundID)
+		dataAlreadySent := p.relayState.bufferableRoundManager.GetDataAlreadySent(roundID)
 		toSend := &net.REL_CLI_DOWNSTREAM_DATA_UDP{REL_CLI_DOWNSTREAM_DATA: *dataAlreadySent}
 		p.messageSender.BroadcastToAllClientsWithLog(toSend, "(UDP retransmission, round "+strconv.Itoa(int(roundID))+")")
 
@@ -63,7 +63,7 @@ func (p *PriFiLibRelayInstance) checkIfRoundHasEndedAfterTimeOut_Phase2(roundID 
 
 	time.Sleep(TIMEOUT_PHASE_2)
 
-	if !p.relayState.dcnetRoundManager.CurrentRoundIsStill(roundID) {
+	if !p.relayState.bufferableRoundManager.IsRoundOpenend(roundID) {
 		//everything went well, it's great !
 		return
 	}
@@ -80,6 +80,6 @@ func (p *PriFiLibRelayInstance) checkIfRoundHasEndedAfterTimeOut_Phase2(roundID 
 	output = append(output, "!!aborted-round-"+strconv.Itoa(int(roundID)))
 	p.relayState.ExperimentResultChannel <- output
 
-	missingClientCiphers, missingTrusteesCiphers := p.relayState.bufferManager.MissingCiphersForCurrentRound()
+	missingClientCiphers, missingTrusteesCiphers := p.relayState.bufferableRoundManager.MissingCiphersForCurrentRound()
 	p.relayState.timeoutHandler(missingClientCiphers, missingTrusteesCiphers)
 }
