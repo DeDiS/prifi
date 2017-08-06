@@ -111,7 +111,7 @@ func (p *PriFiLibRelayInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PARA
 	p.relayState.MessageHistory = config.CryptoSuite.Cipher([]byte("init")) //any non-nil, non-empty, constant array
 	p.relayState.VerifiableDCNetKeys = make([][]byte, nTrustees)
 	p.relayState.nVkeysCollected = 0
-	p.relayState.bufferableRoundManager = NewBufferableRoundManager(nClients, nTrustees, windowSize)
+	p.relayState.roundManager = NewBufferableRoundManager(nClients, nTrustees, windowSize)
 	p.relayState.dcNetType = dcNetType
 	p.relayState.time0 = uint64(prifilog.MsTimeStampNow())
 	p.relayState.pcapLogger = new(utils.PCAPLog)
@@ -128,7 +128,7 @@ func (p *PriFiLibRelayInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PARA
 	}
 
 	//this should be in NewRelayState, but we need p
-	if !p.relayState.bufferableRoundManager.DoSendStopResumeMessages {
+	if !p.relayState.roundManager.DoSendStopResumeMessages {
 		//Add rate-limiting component to buffer manager
 		stopFn := func(trusteeID int) {
 			toSend := &net.REL_TRU_TELL_RATE_CHANGE{WindowCapacity: 0}
@@ -138,7 +138,7 @@ func (p *PriFiLibRelayInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PARA
 			toSend := &net.REL_TRU_TELL_RATE_CHANGE{WindowCapacity: 1}
 			p.messageSender.SendToTrusteeWithLog(trusteeID, toSend, "(trustee "+strconv.Itoa(trusteeID)+")")
 		}
-		p.relayState.bufferableRoundManager.AddRateLimiter(TRUSTEE_CACHE_LOWBOUND, TRUSTEE_CACHE_HIGHBOUND, stopFn, resumeFn)
+		p.relayState.roundManager.AddRateLimiter(TRUSTEE_CACHE_LOWBOUND, TRUSTEE_CACHE_HIGHBOUND, stopFn, resumeFn)
 	}
 
 	log.Lvlf3("%+v\n", p.relayState)
@@ -192,12 +192,12 @@ func (p *PriFiLibRelayInstance) Received_CLI_REL_OPENCLOSED_DATA(msg net.CLI_REL
 
 	log.Error("Relay received openslot data", msg.RoundID, "from client", msg.ClientID)
 
-	p.relayState.bufferableRoundManager.AddClientCipher(msg.RoundID, msg.ClientID, msg.OpenClosedData)
+	p.relayState.roundManager.AddClientCipher(msg.RoundID, msg.ClientID, msg.OpenClosedData)
 
-	if p.relayState.bufferableRoundManager.HasAllCiphersForCurrentRound() {
+	if p.relayState.roundManager.HasAllCiphersForCurrentRound() {
 
 		//classical DC-net decoding
-		clientSlices, trusteesSlices, err := p.relayState.bufferableRoundManager.CollectRoundData()
+		clientSlices, trusteesSlices, err := p.relayState.roundManager.CollectRoundData()
 		if err != nil {
 			return err
 		}
@@ -213,7 +213,7 @@ func (p *PriFiLibRelayInstance) Received_CLI_REL_OPENCLOSED_DATA(msg net.CLI_REL
 
 		//compute the map
 		sched := p.relayState.slotScheduler.Relay_ComputeFinalSchedule(openClosedData, msg.RoundID+1, p.relayState.nClients)
-		p.relayState.bufferableRoundManager.SetStoredRoundSchedule(sched)
+		p.relayState.roundManager.SetStoredRoundSchedule(sched)
 
 		log.Error("OpenClosed Slot Schedule decoded on round", msg.RoundID, sched)
 
@@ -263,21 +263,21 @@ func (p *PriFiLibRelayInstance) Received_CLI_REL_UPSTREAM_DATA(msg net.CLI_REL_U
 	log.Error("Relay received upstream data", msg.RoundID, "from client", msg.ClientID)
 
 	//p.relayState.bufferManager.SkipToRoundIfNeeded(msg.RoundID)
-	p.relayState.bufferableRoundManager.AddClientCipher(msg.RoundID, msg.ClientID, msg.Data)
+	p.relayState.roundManager.AddClientCipher(msg.RoundID, msg.ClientID, msg.Data)
 	timeMs := timing.StopMeasure("dcnet-add").Nanoseconds() / 1e6
 	p.relayState.timeStatistics["dcnet-add"].AddTime(timeMs)
 
-	c, t := p.relayState.bufferableRoundManager.MissingCiphersForCurrentRound()
-	log.Error("Relay is in round", p.relayState.bufferableRoundManager.CurrentRound(), "cipher", c, t)
+	c, t := p.relayState.roundManager.MissingCiphersForCurrentRound()
+	log.Error("Relay is in round", p.relayState.roundManager.CurrentRound(), "cipher", c, t)
 
-	if p.relayState.bufferableRoundManager.HasAllCiphersForCurrentRound() {
+	if p.relayState.roundManager.HasAllCiphersForCurrentRound() {
 
 		timeMs := timing.StopMeasure("waiting-on-someone").Nanoseconds() / 1e6
 		p.relayState.timeStatistics["waiting-on-clients"].AddTime(timeMs)
 
-		log.Error("up to here", p.relayState.bufferableRoundManager.CurrentRound())
+		log.Error("up to here", p.relayState.roundManager.CurrentRound())
 
-		log.Lvl3("Relay has collected all ciphers for round", p.relayState.bufferableRoundManager.CurrentRound(), ", decoding...")
+		log.Lvl3("Relay has collected all ciphers for round", p.relayState.roundManager.CurrentRound(), ", decoding...")
 		p.finalizeUpstreamData()
 
 		//one round has just passed !
@@ -303,16 +303,16 @@ If for a future round we need to Buffer it.
 */
 func (p *PriFiLibRelayInstance) Received_TRU_REL_DC_CIPHER(msg net.TRU_REL_DC_CIPHER) error {
 	timing.StartMeasure("dcnet-add")
-	p.relayState.bufferableRoundManager.AddTrusteeCipher(msg.RoundID, msg.TrusteeID, msg.Data)
+	p.relayState.roundManager.AddTrusteeCipher(msg.RoundID, msg.TrusteeID, msg.Data)
 	timeMs := timing.StopMeasure("dcnet-add").Nanoseconds() / 1e6
 	p.relayState.timeStatistics["dcnet-add"].AddTime(timeMs)
 
-	if p.relayState.bufferableRoundManager.HasAllCiphersForCurrentRound() {
+	if p.relayState.roundManager.HasAllCiphersForCurrentRound() {
 
 		timeMs := timing.StopMeasure("waiting-on-someone").Nanoseconds() / 1e6
 		p.relayState.timeStatistics["waiting-on-trustees"].AddTime(timeMs)
 
-		log.Lvl3("Relay has collected all ciphers for round", p.relayState.bufferableRoundManager.CurrentRound(), ", decoding...")
+		log.Lvl3("Relay has collected all ciphers for round", p.relayState.roundManager.CurrentRound(), ", decoding...")
 		p.finalizeUpstreamData()
 
 		// send the data down
@@ -336,7 +336,7 @@ func (p *PriFiLibRelayInstance) finalizeUpstreamData() error {
 
 	// we decode the DC-net cell
 	timing.StartMeasure("dcnet-decode")
-	clientSlices, trusteesSlices, err := p.relayState.bufferableRoundManager.CollectRoundData()
+	clientSlices, trusteesSlices, err := p.relayState.roundManager.CollectRoundData()
 	if err != nil {
 		return err
 	}
@@ -381,7 +381,7 @@ func (p *PriFiLibRelayInstance) finalizeUpstreamData() error {
 
 	if upstreamPlaintext == nil {
 		// empty upstream cell, need to finish round otherwise will enter next if clause
-		p.doneCollectingUpstreamData(p.relayState.bufferableRoundManager.CurrentRound())
+		p.doneCollectingUpstreamData(p.relayState.roundManager.CurrentRound())
 		return nil
 	}
 
@@ -408,7 +408,7 @@ func (p *PriFiLibRelayInstance) finalizeUpstreamData() error {
 	timeMs = timing.StopMeasure("socks-out").Nanoseconds() / 1e6
 	p.relayState.timeStatistics["socks-out"].AddTime(timeMs)
 
-	p.doneCollectingUpstreamData(p.relayState.bufferableRoundManager.CurrentRound())
+	p.doneCollectingUpstreamData(p.relayState.roundManager.CurrentRound())
 
 	return nil
 }
@@ -454,14 +454,14 @@ func (p *PriFiLibRelayInstance) sendDownstreamData() error {
 		downstreamCellContent = data
 	}
 
-	nextDownstreamRoundID := p.relayState.bufferableRoundManager.NextRoundToOpen()
+	nextDownstreamRoundID := p.relayState.roundManager.NextRoundToOpen()
 
 	// TODO : if something went wrong before, this flag should be used to warn the clients that the config has changed
 	flagResync := false
 
 	// periodically set to True so client can advertise their bitmap
 	flagOpenClosedRequest := p.relayState.UseOpenClosedSlots &&
-		p.relayState.bufferableRoundManager.IsNextDownstreamRoundForOpenClosedRequest(p.relayState.nClients)
+		p.relayState.roundManager.IsNextDownstreamRoundForOpenClosedRequest(p.relayState.nClients)
 
 	//sending data part
 	timing.StartMeasure("sending-data")
@@ -473,8 +473,8 @@ func (p *PriFiLibRelayInstance) sendDownstreamData() error {
 		FlagResync:            flagResync,
 		FlagOpenClosedRequest: flagOpenClosedRequest}
 
-	p.relayState.bufferableRoundManager.OpenNextRound()
-	p.relayState.bufferableRoundManager.SetDataAlreadySent(nextDownstreamRoundID, toSend)
+	p.relayState.roundManager.OpenNextRound()
+	p.relayState.roundManager.SetDataAlreadySent(nextDownstreamRoundID, toSend)
 
 	if !p.relayState.UseUDP {
 		// broadcast to all clients
@@ -528,9 +528,9 @@ func (p *PriFiLibRelayInstance) doneCollectingUpstreamData(roundID int32) error 
 	if roundID == 0 {
 		log.Lvl2("Relay finished round " + strconv.Itoa(int(roundID)) + " .")
 	} else {
-		log.Lvl2("Relay finished round "+strconv.Itoa(int(roundID))+" (after", p.relayState.bufferableRoundManager.TimeSpentInRound(roundID), ").")
+		log.Lvl2("Relay finished round "+strconv.Itoa(int(roundID))+" (after", p.relayState.roundManager.TimeSpentInRound(roundID), ").")
 		p.collectExperimentResult(p.relayState.bitrateStatistics.Report())
-		timeSpent := p.relayState.bufferableRoundManager.TimeSpentInRound(roundID)
+		timeSpent := p.relayState.roundManager.TimeSpentInRound(roundID)
 		p.relayState.timeStatistics["round-duration"].AddTime(timeSpent.Nanoseconds() / 1e6) //ms
 		for k, v := range p.relayState.timeStatistics {
 			p.collectExperimentResult(v.ReportWithInfo(k))
@@ -538,7 +538,7 @@ func (p *PriFiLibRelayInstance) doneCollectingUpstreamData(roundID int32) error 
 	}
 
 	// Test if we are doing an experiment, and if we need to stop at some point.
-	newRound := p.relayState.bufferableRoundManager.CurrentRound()
+	newRound := p.relayState.roundManager.CurrentRound()
 	if newRound == int32(p.relayState.ExperimentRoundLimit) {
 		log.Lvl1("Relay : Experiment round limit (", newRound, ") reached")
 		p.relayState.ExperimentResultChannel <- p.relayState.ExperimentResultData
@@ -548,7 +548,7 @@ func (p *PriFiLibRelayInstance) doneCollectingUpstreamData(roundID int32) error 
 		p.Received_ALL_ALL_SHUTDOWN(msg)
 	}
 	//prepare for the next round
-	p.relayState.bufferableRoundManager.CloseRound()
+	p.relayState.roundManager.CloseRound()
 	p.relayState.CellCoder.DecodeStart(p.relayState.UpstreamCellSize, p.relayState.MessageHistory) //this empties the buffer, making them ready for a new round
 
 	timeMs := timing.StopMeasure("round-transition").Nanoseconds() / 1e6
@@ -736,7 +736,7 @@ func (p *PriFiLibRelayInstance) Received_TRU_REL_SHUFFLE_SIG(msg net.TRU_REL_SHU
 		}
 		msg := toSend5.(*net.REL_CLI_TELL_EPH_PKS_AND_TRUSTEES_SIG)
 		// changing state
-		p.relayState.bufferableRoundManager.OpenNextRound()
+		p.relayState.roundManager.OpenNextRound()
 		log.Lvl2("Relay : ready to communicate.")
 		p.stateMachine.ChangeState("COMMUNICATING")
 

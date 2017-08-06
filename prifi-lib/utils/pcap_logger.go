@@ -5,6 +5,7 @@ import (
 	"gopkg.in/dedis/onet.v1/log"
 )
 
+// PCAPReceivedPacket represents a PCAP that was transmitted through Prifi and received at the relay
 type PCAPReceivedPacket struct {
 	ID              uint32
 	ReceivedAt      uint64
@@ -14,10 +15,12 @@ type PCAPReceivedPacket struct {
 	IsFinalFragment bool
 }
 
+// PCAPLog is a collection of PCAPReceivedPackets
 type PCAPLog struct {
 	receivedPackets []*PCAPReceivedPacket
 }
 
+// should be called with the received pcap packet
 func (pl *PCAPLog) ReceivedPcap(ID uint32, frag bool, tsSent uint64, tsExperimentStart uint64, dataLen uint32) {
 
 	if pl.receivedPackets == nil {
@@ -39,6 +42,7 @@ func (pl *PCAPLog) ReceivedPcap(ID uint32, frag bool, tsSent uint64, tsExperimen
 	pl.Print()
 }
 
+// prints current statistics for the pcap logger
 func (pl *PCAPLog) Print() {
 
 	totalPackets := 0

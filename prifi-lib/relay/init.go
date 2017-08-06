@@ -83,7 +83,7 @@ func NewRelay(dataOutputEnabled bool, dataForClients chan []byte, dataFromDCNet 
 	relayState.timeStatistics["pcap-delay"] = prifilog.NewTimeStatistics()
 	relayState.PublicKey, relayState.privateKey = crypto.NewKeyPair()
 	relayState.slotScheduler = new(scheduler.BitMaskSlotScheduler_Relay)
-	relayState.bufferableRoundManager = new(BufferableRoundManager)
+	relayState.roundManager = new(BufferableRoundManager)
 	neffShuffle := new(scheduler.NeffShuffle)
 	neffShuffle.Init()
 	relayState.neffShuffle = neffShuffle.RelayView
@@ -142,7 +142,7 @@ type NodeRepresentation struct {
 type RelayState struct {
 	CellCoder                         dcnet.CellCoder
 	clients                           []NodeRepresentation
-	bufferableRoundManager            *BufferableRoundManager
+	roundManager                      *BufferableRoundManager
 	neffShuffle                       *scheduler.NeffShuffleRelay
 	currentState                      int16
 	DataForClients                    chan []byte // VPN / SOCKS should put data there !

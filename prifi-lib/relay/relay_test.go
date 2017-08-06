@@ -187,8 +187,8 @@ func TestRelayRun1(t *testing.T) {
 	if rs.UseUDP != true {
 		t.Error("UseUDP was not set correctly")
 	}
-	if rs.bufferableRoundManager.NextRoundToOpen() != 0 {
-		t.Error("nextDownStreamRoundToSend was not set correctly; it should be equal to 0. Is", rs.bufferableRoundManager.NextRoundToOpen())
+	if rs.roundManager.NextRoundToOpen() != 0 {
+		t.Error("nextDownStreamRoundToSend was not set correctly; it should be equal to 0. Is", rs.roundManager.NextRoundToOpen())
 	}
 	if rs.WindowSize != 1 {
 		t.Error("WindowSize was not set correctly")
@@ -196,10 +196,10 @@ func TestRelayRun1(t *testing.T) {
 	if rs.dcNetType != "Simple" {
 		t.Error("DCNetType was not set correctly")
 	}
-	if rs.bufferableRoundManager.resumeFunction == nil {
+	if rs.roundManager.resumeFunction == nil {
 		t.Error("bufferManager.resumeFunction was not set correctly")
 	}
-	if rs.bufferableRoundManager.stopFunction == nil {
+	if rs.roundManager.stopFunction == nil {
 		t.Error("bufferManager.stopFunction was not set correctly")
 	}
 	if relay.stateMachine.State() != "COLLECTING_TRUSTEES_PKS" {
@@ -388,7 +388,7 @@ func TestRelayRun1(t *testing.T) {
 	}
 
 	//not enough to change round !
-	if rs.bufferableRoundManager.CurrentRound() != 0 {
+	if rs.roundManager.CurrentRound() != 0 {
 		t.Error("Should still be in round 0, no data from trustee")
 	}
 
@@ -565,7 +565,7 @@ func TestRelayRun2(t *testing.T) {
 	}
 
 	//not enough to change round !
-	if rs.bufferableRoundManager.CurrentRound() != 0 {
+	if rs.roundManager.CurrentRound() != 0 {
 		t.Error("Should still be in round 0, no data from trustee")
 	}
 
