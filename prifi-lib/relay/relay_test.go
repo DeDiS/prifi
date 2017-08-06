@@ -187,9 +187,8 @@ func TestRelayRun1(t *testing.T) {
 	if rs.UseUDP != true {
 		t.Error("UseUDP was not set correctly")
 	}
-	rs.bufferableRoundManager.OpenNextRound()
-	if rs.bufferableRoundManager.NextRoundToOpen() != 1 {
-		t.Error("nextDownStreamRoundToSend was not set correctly; it should be equal to 1 since round 0 is a half-round, and does not contain downstream data from relay")
+	if rs.bufferableRoundManager.NextRoundToOpen() != 0 {
+		t.Error("nextDownStreamRoundToSend was not set correctly; it should be equal to 0. Is", rs.bufferableRoundManager.NextRoundToOpen())
 	}
 	if rs.WindowSize != 1 {
 		t.Error("WindowSize was not set correctly")
@@ -389,8 +388,6 @@ func TestRelayRun1(t *testing.T) {
 	}
 
 	//not enough to change round !
-	log.Fatal("here2")
-	rs.bufferableRoundManager.OpenNextRound()
 	if rs.bufferableRoundManager.CurrentRound() != 0 {
 		t.Error("Should still be in round 0, no data from trustee")
 	}
@@ -568,7 +565,6 @@ func TestRelayRun2(t *testing.T) {
 	}
 
 	//not enough to change round !
-	rs.bufferableRoundManager.OpenNextRound()
 	if rs.bufferableRoundManager.CurrentRound() != 0 {
 		t.Error("Should still be in round 0, no data from trustee")
 	}
@@ -782,7 +778,6 @@ func TestRelayRun3(t *testing.T) {
 		t.Error(err)
 	}
 	_ = msg16.(*net.REL_CLI_TELL_EPH_PKS_AND_TRUSTEES_SIG)
-
 
 	// should receive a TRU_REL_DC_CIPHER
 	msg17 := net.TRU_REL_DC_CIPHER{

@@ -33,25 +33,25 @@ type SOCKSConfig struct {
 
 //The configuration read in prifi.toml
 type PrifiTomlConfig struct {
-	ForceConsoleColor       bool
-	OverrideLogLevel        int
-	ClientDataOutputEnabled bool
-	RelayDataOutputEnabled  bool
-	CellSizeUp              int
-	CellSizeDown            int
-	RelayWindowSize         int
-	RelayUseOpenClosedSlots bool
-	RelayUseDummyDataDown   bool
-	RelayReportingLimit     int
-	UseUDP                  bool
-	DoLatencyTests          bool
-	SocksServerPort         int
-	SocksClientPort         int
-	ProtocolVersion         string
-	DCNetType               string
-	ReplayPCAP              bool
-	PCAPFolder              string
-	TrusteeNeverSlowDown    bool
+	ForceConsoleColor        bool
+	OverrideLogLevel         int
+	ClientDataOutputEnabled  bool
+	RelayDataOutputEnabled   bool
+	CellSizeUp               int
+	CellSizeDown             int
+	RelayWindowSize          int
+	RelayUseOpenClosedSlots  bool
+	RelayUseDummyDataDown    bool
+	RelayReportingLimit      int
+	UseUDP                   bool
+	DoLatencyTests           bool
+	SocksServerPort          int
+	SocksClientPort          int
+	ProtocolVersion          string
+	DCNetType                string
+	ReplayPCAP               bool
+	PCAPFolder               string
+	TrusteeNeverSlowDown     bool
 	SimulDelayBetweenClients int
 }
 

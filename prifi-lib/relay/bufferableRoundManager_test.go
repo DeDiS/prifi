@@ -1,10 +1,10 @@
 package relay
 
 import (
-"testing"
 	"bytes"
 	"gopkg.in/dedis/crypto.v0/random"
 	"gopkg.in/dedis/onet.v1/log"
+	"testing"
 )
 
 /*
@@ -354,7 +354,7 @@ func TestRateLimiter(test *testing.T) {
 	nTrustees := 1
 	b := NewBufferableRoundManager(nClients, nTrustees, window)
 
-	low := 1 //resume sending when <= low
+	low := 1  //resume sending when <= low
 	high := 3 //stop sending when >= high
 
 	stopCalled := false

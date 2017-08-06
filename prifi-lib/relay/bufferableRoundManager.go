@@ -1,12 +1,12 @@
 package relay
 
 import (
-	"github.com/lbarman/prifi/prifi-lib/net"
 	"errors"
-	"sync"
+	"github.com/lbarman/prifi/prifi-lib/net"
 	"gopkg.in/dedis/onet.v1/log"
-	"time"
 	"strconv"
+	"sync"
+	"time"
 )
 
 // Stores ciphers for different rounds. Manages the transition between rounds, the rate limiting of trustees
@@ -14,40 +14,41 @@ type BufferableRoundManager struct {
 	sync.Mutex
 
 	//immutable
-	nClients  int
-	nTrustees int
+	nClients                    int
+	nTrustees                   int
 	maxNumberOfConcurrentRounds int
 
 	//the ACK map for this round
-	clientAckMap                map[int]bool
-	trusteeAckMap               map[int]bool
+	clientAckMap  map[int]bool
+	trusteeAckMap map[int]bool
 
 	//hold the real data. map(trustee/clientID -> map( roundID -> data))
-	bufferedClientCiphers       map[int]map[int32][]byte
-	bufferedTrusteeCiphers      map[int]map[int32][]byte
+	bufferedClientCiphers  map[int]map[int32][]byte
+	bufferedTrusteeCiphers map[int]map[int32][]byte
 
 	//we remember the last round we close for OpenNextRound()
 	lastRoundClosed int32
 
 	//we also store the data already sent, in case we need to resend it
-	dataAlreadySent             map[int32]*net.REL_CLI_DOWNSTREAM_DATA
+	dataAlreadySent map[int32]*net.REL_CLI_DOWNSTREAM_DATA
 
 	//when we open a round, we keep the start time to measure round duration
-	openRounds                  map[int32]time.Time
+	openRounds map[int32]time.Time
 
 	//holds the schedule, i.e. which round will be skipped in the future
-	storedRoundsSchedule        map[int32]bool
+	storedRoundsSchedule map[int32]bool
 
 	//stop/resume functions when we have too much/little ciphers
-	DoSendStopResumeMessages    bool
-	LowBound                    int //restart sending at lowerbound
-	HighBound                   int //stop sending at higherbound
-	stopFunction                func(int)
-	stopSent                    bool
-	resumeFunction              func(int)
-	resumeSent                  bool
+	DoSendStopResumeMessages bool
+	LowBound                 int //restart sending at lowerbound
+	HighBound                int //stop sending at higherbound
+	stopFunction             func(int)
+	stopSent                 bool
+	resumeFunction           func(int)
+	resumeSent               bool
 }
 
+// NewBufferableRoundManager creates a Round Manager that handles the buffering of cipher, the rounds and their transitions, and the rate-limiting
 func NewBufferableRoundManager(nClients, nTrustees, maxNumberOfConcurrentRounds int) *BufferableRoundManager {
 	if nClients+nTrustees == 0 {
 		log.Fatal("Can't init a BufferableRoundManager with no clients nor trustees")
@@ -78,12 +79,13 @@ func (b *BufferableRoundManager) CurrentRound() int32 {
 	defer b.Unlock()
 
 	anyRoundOpen, round := b.currentRound()
-	if !anyRoundOpen{
+	if !anyRoundOpen {
 		log.Fatal("Tried to get CurrentRound(), but no round opened !")
 	}
 
 	return round
 }
+
 // CurrentRound returns the current round, ie the smallest open round, or returns (false, -1) if no rounds are open
 func (b *BufferableRoundManager) currentRound() (bool, int32) {
 
@@ -99,7 +101,6 @@ func (b *BufferableRoundManager) currentRound() (bool, int32) {
 	}
 	return true, min
 }
-
 
 // NextRoundToOpen returns the next round to open. If none are open, uses the "lastRoundClosed"+1. Always skipped the planned closed rounds.
 func (b *BufferableRoundManager) NextRoundToOpen() int32 {
@@ -120,28 +121,27 @@ func (b *BufferableRoundManager) nextRoundToOpen() int32 {
 		nextRoundCandidate = currentRound + 1
 	}
 
-	//shift while that round is already opened
+	// shift while that round is already opened
 	_, found := b.openRounds[nextRoundCandidate]
 
-	//check if disabled in the schedule, iterate until find a non-closed slot (or go further than the schedule in time)
+	// check if disabled in the schedule, iterate until find a non-closed slot (or go further than the schedule in time)
 	for found {
 		nextRoundCandidate++
 		_, found = b.openRounds[nextRoundCandidate]
 	}
 
 	if b.storedRoundsSchedule == nil || len(b.storedRoundsSchedule) == 0 {
-		return nextRoundCandidate //valid since no schedule
-	} else {
-		_, found := b.storedRoundsSchedule[nextRoundCandidate]
-
-		//check if disabled in the schedule, iterate until find a non-closed slot (or go further than the schedule in time)
-		for found {
-			nextRoundCandidate++
-			_, found = b.storedRoundsSchedule[nextRoundCandidate]
-		}
-
-		return nextRoundCandidate
+		return nextRoundCandidate // valid since no schedule
 	}
+
+	_, found = b.storedRoundsSchedule[nextRoundCandidate]
+
+	// check if disabled in the schedule, iterate until find a non-closed slot (or go further than the schedule in time)
+	for found {
+		nextRoundCandidate++
+		_, found = b.storedRoundsSchedule[nextRoundCandidate]
+	}
+	return nextRoundCandidate
 }
 
 // Open next round, fetch the buffered ciphers, reset the ACK map
@@ -174,7 +174,7 @@ func (b *BufferableRoundManager) CollectRoundData() ([][]byte, [][]byte, error) 
 		return nil, nil, errors.New("Cannot collect round, none opened !")
 	}
 	if !b.hasAllCiphersForCurrentRound() {
-		return nil, nil, errors.New("Cannot collect round " +strconv.Itoa(int(currentRoundID))+ " yet, missing ciphers.")
+		return nil, nil, errors.New("Cannot collect round " + strconv.Itoa(int(currentRoundID)) + " yet, missing ciphers.")
 	}
 
 	//prepare the output, discard those ciphers
@@ -204,7 +204,7 @@ func (b *BufferableRoundManager) CloseRound() error {
 	}
 
 	if !b.hasAllCiphersForCurrentRound() {
-		return errors.New("Cannot close round "+strconv.Itoa(int(currentRoundID))+", does not have all ciphers")
+		return errors.New("Cannot close round " + strconv.Itoa(int(currentRoundID)) + ", does not have all ciphers")
 	}
 
 	//close current round
@@ -251,7 +251,7 @@ func (b *BufferableRoundManager) CloseRound() error {
 
 // isRoundOpen returns true IFF the round is in openRounds
 func (b *BufferableRoundManager) isRoundOpen(roundID int32) bool {
-	_, found := b.openRounds[roundID];
+	_, found := b.openRounds[roundID]
 	return found
 }
 
@@ -294,14 +294,13 @@ func (b *BufferableRoundManager) SetStoredRoundSchedule(s map[int32]bool) {
 	b.storedRoundsSchedule = s
 }
 
-
 // SetDataAlreadySent sets the "DataAlreadySent" field for the given round
 func (b *BufferableRoundManager) SetDataAlreadySent(roundID int32, data *net.REL_CLI_DOWNSTREAM_DATA) {
 	b.Lock()
 	defer b.Unlock()
 
-	if !b.isRoundOpen(roundID){
-		log.Fatal("Called SetDataAlreadySent(",roundID,"), but round is already closed.")
+	if !b.isRoundOpen(roundID) {
+		log.Fatal("Called SetDataAlreadySent(", roundID, "), but round is already closed.")
 	}
 
 	b.dataAlreadySent[roundID] = data
@@ -453,7 +452,6 @@ func (b *BufferableRoundManager) AddRateLimiter(lowBound, highBound int, stopFun
 
 	return nil
 }
-
 
 func (b *BufferableRoundManager) sendRateChangeIfNeeded(trusteeID int) {
 	if b.DoSendStopResumeMessages {

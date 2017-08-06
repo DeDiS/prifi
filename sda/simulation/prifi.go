@@ -148,7 +148,7 @@ func (s *SimulationService) Node(config *onet.SimulationConfig) error {
 	} else {
 		if s.PrifiTomlConfig.SimulDelayBetweenClients > 0 {
 			clientIndex := index - 1 - s.NTrustees
-			timeToSleep := 5 + s.PrifiTomlConfig.SimulDelayBetweenClients * clientIndex
+			timeToSleep := 5 + s.PrifiTomlConfig.SimulDelayBetweenClients*clientIndex
 			log.Lvl1("Initiating this node (index ", index, ") as client, but sleeping", timeToSleep, "sec before")
 			time.Sleep(time.Duration(timeToSleep) * time.Second)
 			log.Lvl1("Initiating this node (index ", index, ") as client (done sleeping)")
