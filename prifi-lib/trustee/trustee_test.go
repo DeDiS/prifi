@@ -61,7 +61,8 @@ func TestTrustee(t *testing.T) {
 
 	msgSender := new(TestMessageSender)
 	msw := newTestMessageSenderWrapper(msgSender)
-	trustee := NewTrustee(msw)
+	neverSlowDown := false
+	trustee := NewTrustee(neverSlowDown, msw)
 
 	ts := trustee.trusteeState
 	if ts.sendingRate == nil {
