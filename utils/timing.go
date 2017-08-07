@@ -10,7 +10,6 @@
 package timing
 
 import (
-	"fmt"
 	"gopkg.in/dedis/onet.v1/log"
 	"sync"
 	"time"
@@ -26,8 +25,7 @@ func StartMeasure(name string) {
 	if _, present := startTimes[name]; present {
 		// Unlock before potentially expensive writing to output.
 		mutex.Unlock()
-		msg := fmt.Sprint("WARNING: starting a measure that already exists with name: ", name, " (nothing will happen)")
-		log.Error(msg)
+		//log.Error("WARNING: starting a measure that already exists with name: ", name, " (nothing will happen)")
 	} else {
 		startTimes[name] = time.Now()
 		mutex.Unlock()
@@ -50,7 +48,7 @@ func StopMeasure(name string) time.Duration {
 		// Unlock before potentially expensive writing to output.
 		mutex.Unlock()
 
-		log.Lvl1("[timings] measured time for ", name, ": ", duration)
+		log.Lvl1("[timings] measured time for", name, ":", duration.Nanoseconds(), "ns")
 
 		return duration
 	}

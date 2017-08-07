@@ -27,6 +27,7 @@ import (
 	"net"
 	"os/exec"
 	"strconv"
+	"time"
 )
 
 // DefaultName is the name of the binary we produce and is used to create a directory
@@ -238,7 +239,7 @@ func startClient(c *cli.Context) error {
 
 	host, group, service := readConfigAndStartCothority(c)
 
-	if err := service.StartClient(group); err != nil {
+	if err := service.StartClient(group, time.Duration(0)); err != nil {
 		log.Error("Could not start the prifi service:", err)
 		os.Exit(1)
 	}

@@ -7,7 +7,6 @@ import (
 	"github.com/BurntSushi/toml"
 	prifi_protocol "github.com/lbarman/prifi/sda/protocols"
 	prifi_service "github.com/lbarman/prifi/sda/services"
-	"github.com/lbarman/prifi/utils/output"
 	"gopkg.in/dedis/onet.v1"
 	"gopkg.in/dedis/onet.v1/app"
 	"gopkg.in/dedis/onet.v1/log"
@@ -149,14 +148,11 @@ func (s *SimulationService) Node(config *onet.SimulationConfig) error {
 		if s.PrifiTomlConfig.SimulDelayBetweenClients > 0 {
 			clientIndex := index - 1 - s.NTrustees
 			timeToSleep := 5 + s.PrifiTomlConfig.SimulDelayBetweenClients*clientIndex
-			log.Lvl1("Initiating this node (index ", index, ") as client, but sleeping", timeToSleep, "sec before")
-			time.Sleep(time.Duration(timeToSleep) * time.Second)
-			log.Lvl1("Initiating this node (index ", index, ") as client (done sleeping)")
+
+			err = service.StartClient(group, time.Duration(timeToSleep))
 		} else {
-			log.Lvl1("Initiating this node (index ", index, ") as client")
-			time.Sleep(5 * time.Second)
+			err = service.StartClient(group, time.Duration(0))
 		}
-		err = service.StartClient(group)
 	}
 
 	if err != nil {
@@ -254,12 +250,12 @@ func writeExperimentResult(data []string, simulationID string, config *onet.Simu
 	}
 
 	//write to file
-	o := new(output.FileOutput)
 	filePath := path.Join(folderName, "output.json")
-	o.Filename = filePath
-	log.Info("Simulation results stored in", o.Filename)
+	log.Info("Simulation results stored in", filePath)
+	fo, _ := os.Create(filePath)
+	defer fo.Close()
 	for _, s := range data {
-		o.Print(s)
+		fo.WriteString(s)
 	}
 }
 func hashString(data string) string {

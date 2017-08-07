@@ -258,12 +258,12 @@ If we finished a round (we had collected all data, and called DecodeCell()), we 
 Either we send something from the SOCKS/VPN buffer, or we answer the latency-test message if we received any, or we send 1 bit.
 */
 func (p *PriFiLibRelayInstance) Received_CLI_REL_UPSTREAM_DATA(msg net.CLI_REL_UPSTREAM_DATA) error {
-	timing.StartMeasure("dcnet-add")
+	//timing.StartMeasure("dcnet-add")
 
 	//p.relayState.bufferManager.SkipToRoundIfNeeded(msg.RoundID)
 	p.relayState.roundManager.AddClientCipher(msg.RoundID, msg.ClientID, msg.Data)
-	timeMs := timing.StopMeasure("dcnet-add").Nanoseconds() / 1e6
-	p.relayState.timeStatistics["dcnet-add"].AddTime(timeMs)
+	//timeMs := timing.StopMeasure("dcnet-add").Nanoseconds() / 1e6
+	//p.relayState.timeStatistics["dcnet-add"].AddTime(timeMs)
 
 	if p.relayState.roundManager.HasAllCiphersForCurrentRound() {
 
@@ -293,10 +293,10 @@ If it's for this round, we call decode on it, and remember we received it.
 If for a future round we need to Buffer it.
 */
 func (p *PriFiLibRelayInstance) Received_TRU_REL_DC_CIPHER(msg net.TRU_REL_DC_CIPHER) error {
-	timing.StartMeasure("dcnet-add")
+	//timing.StartMeasure("dcnet-add")
 	p.relayState.roundManager.AddTrusteeCipher(msg.RoundID, msg.TrusteeID, msg.Data)
-	timeMs := timing.StopMeasure("dcnet-add").Nanoseconds() / 1e6
-	p.relayState.timeStatistics["dcnet-add"].AddTime(timeMs)
+	//timeMs := timing.StopMeasure("dcnet-add").Nanoseconds() / 1e6
+	//p.relayState.timeStatistics["dcnet-add"].AddTime(timeMs)
 
 	if p.relayState.roundManager.HasAllCiphersForCurrentRound() {
 

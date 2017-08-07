@@ -18,6 +18,7 @@ import (
 	"gopkg.in/dedis/onet.v1/app"
 	"gopkg.in/dedis/onet.v1/log"
 	"gopkg.in/dedis/onet.v1/network"
+	"time"
 )
 
 //The name of the service, used by SDA's internals
@@ -170,7 +171,7 @@ func (s *ServiceState) StartRelay(group *app.Group) error {
 
 // StartClient starts the necessary
 // protocols to enable the client-mode.
-func (s *ServiceState) StartClient(group *app.Group) error {
+func (s *ServiceState) StartClient(group *app.Group, delay time.Duration) error {
 	log.Info("Service", s, "running in client mode")
 	s.role = prifi_protocol.Client
 
@@ -195,7 +196,15 @@ func (s *ServiceState) StartClient(group *app.Group) error {
 
 	s.connectToRelayStopChan = make(chan bool)
 	s.trusteeIDs = trusteeIDs
-	go s.connectToRelay(relayID, s.connectToRelayStopChan)
+
+	go func() {
+		if delay > 0 {
+			log.Lvl1("Client sleeping for", (delay * time.Second))
+			time.Sleep(delay * time.Second)
+			log.Lvl1("Client done sleeping (for", (delay * time.Second),")")
+		}
+		go s.connectToRelay(relayID, s.connectToRelayStopChan)
+	}()
 
 	return nil
 }
