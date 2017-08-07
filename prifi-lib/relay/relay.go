@@ -43,7 +43,7 @@ import (
 	"github.com/lbarman/prifi/prifi-lib/net"
 	"github.com/lbarman/prifi/prifi-lib/utils"
 	socks "github.com/lbarman/prifi/prifi-socks"
-	"github.com/lbarman/prifi/utils/timing"
+	"github.com/lbarman/prifi/utils"
 	"gopkg.in/dedis/crypto.v0/abstract"
 	"gopkg.in/dedis/onet.v1/log"
 )
@@ -618,8 +618,6 @@ func (p *PriFiLibRelayInstance) Received_CLI_REL_TELL_PK_AND_EPH_PK(msg net.CLI_
 		p.messageSender.SendToTrusteeWithLog(trusteeID, toSend, "(0-th iteration)")
 
 		p.stateMachine.ChangeState("COLLECTING_SHUFFLES")
-
-		timing.StopMeasure("Resync")
 	}
 
 	return nil
@@ -730,6 +728,8 @@ func (p *PriFiLibRelayInstance) Received_TRU_REL_SHUFFLE_SIG(msg net.TRU_REL_SHU
 		p.relayState.roundManager.OpenNextRound()
 		log.Lvl2("Relay : ready to communicate.")
 		p.stateMachine.ChangeState("COMMUNICATING")
+
+		timing.StopMeasure("resync")
 
 		// broadcast to all clients
 		for i := 0; i < p.relayState.nClients; i++ {

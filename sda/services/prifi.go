@@ -2,7 +2,7 @@ package services
 
 import (
 	prifi_protocol "github.com/lbarman/prifi/sda/protocols"
-	"github.com/lbarman/prifi/utils/timing"
+	"github.com/lbarman/prifi/utils"
 	"gopkg.in/dedis/onet.v1/log"
 	"gopkg.in/dedis/onet.v1/network"
 	"time"
@@ -141,7 +141,7 @@ func (s *ServiceState) StartPriFiCommunicateProtocol() {
 		return
 	}
 
-	timing.StartMeasure("Resync")
+	timing.StartMeasure("resync")
 
 	var wrapper *prifi_protocol.PriFiSDAProtocol
 	roster := s.churnHandler.createRoster()
