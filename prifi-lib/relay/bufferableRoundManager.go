@@ -154,11 +154,32 @@ func (b *BufferableRoundManager) OpenNextRound() int32 {
 		log.Fatal("Tried to OpenNextRound(), but we have already", len(b.openRounds), "rounds opened.")
 	}
 
+	anyRoundOpen := false
+	if len(b.openRounds) > 0 {
+		anyRoundOpen = true
+	}
+
 	roundID := b.nextRoundToOpen()
 
 	//open the round
 	b.dataAlreadySent[roundID] = nil
 	b.openRounds[roundID] = time.Now()
+
+	//if no round was opened before, then by opening this one, you need to pull the already-buffered ciphers
+	if !anyRoundOpen {
+		b.resetACKmaps()
+		//use the cipher we already stored
+		for i := 0; i < b.nClients; i++ {
+			if _, exists := b.bufferedClientCiphers[i][roundID]; exists {
+				b.clientAckMap[i] = true
+			}
+		}
+		for i := 0; i < b.nTrustees; i++ {
+			if _, exists := b.bufferedTrusteeCiphers[i][roundID]; exists {
+				b.trusteeAckMap[i] = true
+			}
+		}
+	}
 
 	return roundID
 }
@@ -322,10 +343,10 @@ func (b *BufferableRoundManager) AddTrusteeCipher(roundID int32, trusteeID int, 
 	b.Lock()
 	defer b.Unlock()
 
-	anyRoundOpenend, currendRound := b.currentRound()
-	if !anyRoundOpenend {
-		log.Fatal("Can't add trustee cipher, no round opened")
-	}
+	_, currendRound := b.currentRound()
+	//if !anyRoundOpenend {
+	//	log.Fatal("Can't add trustee cipher, no round opened")
+	//}
 
 	if data == nil {
 		return errors.New("Can't accept a nil trustee cipher")

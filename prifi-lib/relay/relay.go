@@ -260,22 +260,15 @@ Either we send something from the SOCKS/VPN buffer, or we answer the latency-tes
 func (p *PriFiLibRelayInstance) Received_CLI_REL_UPSTREAM_DATA(msg net.CLI_REL_UPSTREAM_DATA) error {
 	timing.StartMeasure("dcnet-add")
 
-	log.Error("Relay received upstream data", msg.RoundID, "from client", msg.ClientID)
-
 	//p.relayState.bufferManager.SkipToRoundIfNeeded(msg.RoundID)
 	p.relayState.roundManager.AddClientCipher(msg.RoundID, msg.ClientID, msg.Data)
 	timeMs := timing.StopMeasure("dcnet-add").Nanoseconds() / 1e6
 	p.relayState.timeStatistics["dcnet-add"].AddTime(timeMs)
 
-	c, t := p.relayState.roundManager.MissingCiphersForCurrentRound()
-	log.Error("Relay is in round", p.relayState.roundManager.CurrentRound(), "cipher", c, t)
-
 	if p.relayState.roundManager.HasAllCiphersForCurrentRound() {
 
 		timeMs := timing.StopMeasure("waiting-on-someone").Nanoseconds() / 1e6
 		p.relayState.timeStatistics["waiting-on-clients"].AddTime(timeMs)
-
-		log.Error("up to here", p.relayState.roundManager.CurrentRound())
 
 		log.Lvl3("Relay has collected all ciphers for round", p.relayState.roundManager.CurrentRound(), ", decoding...")
 		p.finalizeUpstreamData()
@@ -289,8 +282,6 @@ func (p *PriFiLibRelayInstance) Received_CLI_REL_UPSTREAM_DATA(msg net.CLI_REL_U
 			log.Lvl3("Relay : Gonna send, non-acked packets is", p.relayState.numberOfNonAckedDownstreamPackets, "(window is", p.relayState.WindowSize, ")")
 			p.sendDownstreamData()
 		}
-
-		log.Error("Done here")
 	}
 
 	return nil
@@ -302,6 +293,7 @@ If it's for this round, we call decode on it, and remember we received it.
 If for a future round we need to Buffer it.
 */
 func (p *PriFiLibRelayInstance) Received_TRU_REL_DC_CIPHER(msg net.TRU_REL_DC_CIPHER) error {
+
 	timing.StartMeasure("dcnet-add")
 	p.relayState.roundManager.AddTrusteeCipher(msg.RoundID, msg.TrusteeID, msg.Data)
 	timeMs := timing.StopMeasure("dcnet-add").Nanoseconds() / 1e6

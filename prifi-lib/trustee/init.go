@@ -22,7 +22,7 @@ const (
 )
 
 // TRUSTEE_BASE_SLEEP_TIME is the base unit for how much time the trustee sleeps between sending ciphers to the relay.
-const TRUSTEE_BASE_SLEEP_TIME = 1000 * time.Millisecond
+const TRUSTEE_BASE_SLEEP_TIME = 100 * time.Millisecond
 
 // PriFiLibTrusteeInstance contains the mutable state of a PriFi entity.
 type PriFiLibTrusteeInstance struct {
