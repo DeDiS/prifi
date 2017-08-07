@@ -293,7 +293,6 @@ If it's for this round, we call decode on it, and remember we received it.
 If for a future round we need to Buffer it.
 */
 func (p *PriFiLibRelayInstance) Received_TRU_REL_DC_CIPHER(msg net.TRU_REL_DC_CIPHER) error {
-
 	timing.StartMeasure("dcnet-add")
 	p.relayState.roundManager.AddTrusteeCipher(msg.RoundID, msg.TrusteeID, msg.Data)
 	timeMs := timing.StopMeasure("dcnet-add").Nanoseconds() / 1e6

@@ -18,7 +18,7 @@ func (p *PriFiLibRelayInstance) checkIfRoundHasEndedAfterTimeOut_Phase1(roundID 
 
 	time.Sleep(TIMEOUT_PHASE_1)
 
-	if !p.relayState.roundManager.IsRoundOpenend(roundID) {
+	if !p.relayState.roundManager.IsRoundOpenend(roundID) || p.relayState.roundManager.IsKnownClosedRound(roundID) {
 		return //everything went well, it's great !
 	}
 
@@ -26,6 +26,7 @@ func (p *PriFiLibRelayInstance) checkIfRoundHasEndedAfterTimeOut_Phase1(roundID 
 		return //nothing to ensure in that case
 	}
 
+	log.Error(p.relayState.roundManager.openRounds)
 	log.Error("waitAndCheckIfClientsSentData : We seem to be stuck in round", roundID, ". Phase 1 timeout.")
 
 	missingClientCiphers, missingTrusteesCiphers := p.relayState.roundManager.MissingCiphersForCurrentRound()

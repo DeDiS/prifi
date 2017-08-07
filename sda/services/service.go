@@ -122,7 +122,7 @@ func (s *ServiceState) RelayAllowAutoStart() {
 	if s.churnHandler == nil {
 		log.Fatal("Cannot allow auto start when relay has not been initialized")
 	}
-	s.churnHandler.isProtocolRunning = s.IsPriFiProtocolRunning
+	s.churnHandler.startProtocol = s.StartPriFiCommunicateProtocol
 }
 
 // StartRelay starts the necessary

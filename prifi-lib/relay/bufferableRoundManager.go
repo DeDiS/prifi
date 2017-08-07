@@ -439,6 +439,18 @@ func (b *BufferableRoundManager) MissingCiphersForCurrentRound() ([]int, []int) 
 	return clientMissing, trusteeMissing
 }
 
+// IsKnownClosedRound returns true IFF roundID is known to be a closed round in the current schedule
+func (b *BufferableRoundManager) IsKnownClosedRound(roundID int32) bool {
+
+	if b.storedRoundsSchedule == nil {
+		return false
+	}
+
+	_, found := b.storedRoundsSchedule[roundID]
+
+	return found
+}
+
 // IsRoundOpenend checks if we are in the given round (ie, used to check if we are stuck)
 func (b *BufferableRoundManager) IsRoundOpenend(roundID int32) bool {
 	b.Lock()
