@@ -1,6 +1,6 @@
-CellSizeUp = 1000
+CellSizeUp = 2000
 CellSizeDown = 1000
-RelayWindowSize = 1
+RelayWindowSize = 10
 RelayUseDummyDataDown = false
 RelayReportingLimit = -1
 RelayDataOutputEnabled = true
