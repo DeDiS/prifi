@@ -201,7 +201,7 @@ func (s *ServiceState) StartClient(group *app.Group, delay time.Duration) error 
 		if delay > 0 {
 			log.Lvl1("Client sleeping for", (delay * time.Second))
 			time.Sleep(delay * time.Second)
-			log.Lvl1("Client done sleeping (for", (delay * time.Second),")")
+			log.Lvl1("Client done sleeping (for", (delay * time.Second), ")")
 		}
 		go s.connectToRelay(relayID, s.connectToRelayStopChan)
 	}()

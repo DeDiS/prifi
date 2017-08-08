@@ -175,6 +175,7 @@ type RelayState struct {
 	dcNetType                         string
 	time0                             uint64
 	pcapLogger                        *utils.PCAPLog
+	DisruptionProtectionEnabled       bool
 
 	//Used for verifiable DC-net, part of the dcnet/owned.go
 	VerifiableDCNetKeys [][]byte

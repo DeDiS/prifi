@@ -27,6 +27,7 @@ ReplayPCAP = false
 PCAPFolder = "pcap/"
 TrusteeNeverSlowDown = true
 SimulDelayBetweenClients = 20
+DisruptionProtectionEnabled = true
 
 Rounds
 1

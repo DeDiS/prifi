@@ -27,6 +27,7 @@ Hosts = x
 ReplayPCAP = false
 PCAPFolder = "pcap/"
 SimulDelayBetweenClients = 60
+DisruptionProtectionEnabled = true
 
 Rounds
 1

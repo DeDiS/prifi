@@ -36,32 +36,33 @@ import (
 
 // ClientState contains the mutable state of the client.
 type ClientState struct {
-	DCNet_FF                  *DCNet_FastForwarder
-	currentState              int16
-	DataForDCNet              chan []byte //Data to the relay : VPN / SOCKS should put data there !
-	NextDataForDCNet          *[]byte     //if not nil, send this before polling DataForDCNet
-	DataFromDCNet             chan []byte //Data from the relay : VPN / SOCKS should read data from there !
-	DataOutputEnabled         bool        //if FALSE, nothing will be written to DataFromDCNet
-	ephemeralPrivateKey       abstract.Scalar
-	EphemeralPublicKey        abstract.Point
-	ID                        int
-	LatencyTest               *prifilog.LatencyTests
-	MySlot                    int
-	Name                      string
-	nClients                  int
-	nTrustees                 int
-	PayloadLength             int
-	privateKey                abstract.Scalar
-	PublicKey                 abstract.Point
-	sharedSecrets             []abstract.Point
-	TrusteePublicKey          []abstract.Point
-	UsablePayloadLength       int
-	UseSocksProxy             bool
-	UseUDP                    bool
-	MessageHistory            abstract.Cipher
-	StartStopReceiveBroadcast chan bool
-	timeStatistics            map[string]*prifilog.TimeStatistics
-	pcapReplay                *PCAPReplayer
+	DCNet_FF                    *DCNet_FastForwarder
+	currentState                int16
+	DataForDCNet                chan []byte //Data to the relay : VPN / SOCKS should put data there !
+	NextDataForDCNet            *[]byte     //if not nil, send this before polling DataForDCNet
+	DataFromDCNet               chan []byte //Data from the relay : VPN / SOCKS should read data from there !
+	DataOutputEnabled           bool        //if FALSE, nothing will be written to DataFromDCNet
+	ephemeralPrivateKey         abstract.Scalar
+	EphemeralPublicKey          abstract.Point
+	ID                          int
+	LatencyTest                 *prifilog.LatencyTests
+	MySlot                      int
+	Name                        string
+	nClients                    int
+	nTrustees                   int
+	PayloadLength               int
+	privateKey                  abstract.Scalar
+	PublicKey                   abstract.Point
+	sharedSecrets               []abstract.Point
+	TrusteePublicKey            []abstract.Point
+	UsablePayloadLength         int
+	UseSocksProxy               bool
+	UseUDP                      bool
+	MessageHistory              abstract.Cipher
+	StartStopReceiveBroadcast   chan bool
+	timeStatistics              map[string]*prifilog.TimeStatistics
+	pcapReplay                  *PCAPReplayer
+	DisruptionProtectionEnabled bool
 
 	//concurrent stuff
 	RoundNo           int32

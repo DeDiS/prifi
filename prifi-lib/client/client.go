@@ -33,6 +33,8 @@ import (
 	"gopkg.in/dedis/crypto.v0/abstract"
 	"gopkg.in/dedis/onet.v1/log"
 
+	"crypto/hmac"
+	"crypto/sha256"
 	"github.com/lbarman/prifi/prifi-lib/dcnet"
 	"github.com/lbarman/prifi/prifi-lib/scheduler"
 	"github.com/lbarman/prifi/prifi-lib/utils"
@@ -62,6 +64,7 @@ func (p *PriFiLibClientInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PAR
 	upCellSize := msg.IntValueOrElse("UpstreamCellSize", p.clientState.PayloadLength) //todo: change this name
 	useUDP := msg.BoolValueOrElse("UseUDP", p.clientState.UseUDP)
 	dcNetType := msg.StringValueOrElse("DCNetType", "not initialized")
+	disruptionProtection := msg.BoolValueOrElse("DisruptionProtectionEnabled", false)
 
 	//sanity checks
 	if clientID < -1 {
@@ -100,6 +103,7 @@ func (p *PriFiLibClientInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PAR
 	p.clientState.RoundNo = int32(0)
 	p.clientState.BufferedRoundData = make(map[int32]net.REL_CLI_DOWNSTREAM_DATA)
 	p.clientState.MessageHistory = config.CryptoSuite.Cipher([]byte("init")) //any non-nil, non-empty, constant array
+	p.clientState.DisruptionProtectionEnabled = disruptionProtection
 
 	//we know our client number, if needed, parse the pcap for replay
 	if p.clientState.pcapReplay.Enabled {
@@ -389,14 +393,27 @@ func (p *PriFiLibClientInstance) SendUpstreamData() error {
 	upstreamCell := p.clientState.DCNet_FF.ClientEncodeForRound(p.clientState.RoundNo, upstreamCellContent, p.clientState.PayloadLength, p.clientState.MessageHistory)
 
 	//send the data to the relay
+	hmac := nil
+	if p.clientState.DisruptionProtectionEnabled {
+		hmac = p.computeHmac256(upstreamCellContent)
+	}
 	toSend := &net.CLI_REL_UPSTREAM_DATA{
 		ClientID: p.clientState.ID,
 		RoundID:  p.clientState.RoundNo,
-		Data:     upstreamCell}
+		Data:     upstreamCell,
+		HMAC:     hmac,
+	}
 
 	p.messageSender.SendToRelayWithLog(toSend, "(round "+strconv.Itoa(int(p.clientState.RoundNo))+")")
 
 	return nil
+}
+
+func (p *PriFiLibClientInstance) computeHmac256(message []byte) []byte {
+	key := []byte("client-secret" + strconv.Itoa(p.clientState.ID))
+	h := hmac.New(sha256.New, key)
+	h.Write(message)
+	return h.Sum(nil)
 }
 
 /*
@@ -493,13 +510,19 @@ func (p *PriFiLibClientInstance) Received_REL_CLI_TELL_EPH_PKS_AND_TRUSTEES_SIG(
 	log.Lvl3("Client " + strconv.Itoa(p.clientState.ID) + " is ready to communicate.")
 
 	//produce a blank cell (we could embed data, but let's keep the code simple, one wasted message is not much)
-	upstreamCell := p.clientState.DCNet_FF.ClientEncodeForRound(0, nil, p.clientState.PayloadLength, p.clientState.MessageHistory)
+	blank := make([]byte, 0)
+	upstreamCell := p.clientState.DCNet_FF.ClientEncodeForRound(0, blank, p.clientState.PayloadLength, p.clientState.MessageHistory)
 
 	//send the data to the relay
+	hmac := nil
+	if p.clientState.DisruptionProtectionEnabled {
+		hmac = p.computeHmac256(blank)
+	}
 	toSend := &net.CLI_REL_UPSTREAM_DATA{
 		ClientID: p.clientState.ID,
 		RoundID:  p.clientState.RoundNo,
 		Data:     upstreamCell,
+		HMAC:     hmac,
 	}
 	p.messageSender.SendToRelayWithLog(toSend, "(round "+strconv.Itoa(int(p.clientState.RoundNo))+")")
 

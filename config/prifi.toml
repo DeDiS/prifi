@@ -16,3 +16,4 @@ DCNetType = "Simple"
 ReplayPCAP = true
 PCAPFolder = "pcap/"
 TrusteeNeverSlowDown = true
+DisruptionProtectionEnabled = true

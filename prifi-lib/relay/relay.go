@@ -93,6 +93,7 @@ func (p *PriFiLibRelayInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PARA
 	reportingLimit := msg.IntValueOrElse("ExperimentRoundLimit", p.relayState.ExperimentRoundLimit)
 	useUDP := msg.BoolValueOrElse("UseUDP", p.relayState.UseUDP)
 	dcNetType := msg.StringValueOrElse("DCNetType", p.relayState.dcNetType)
+	disruptionProtection := msg.BoolValueOrElse("DisruptionProtectionEnabled", false)
 
 	p.relayState.clients = make([]NodeRepresentation, nClients)
 	p.relayState.trustees = make([]NodeRepresentation, nTrustees)
@@ -115,6 +116,7 @@ func (p *PriFiLibRelayInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PARA
 	p.relayState.dcNetType = dcNetType
 	p.relayState.time0 = uint64(prifilog.MsTimeStampNow())
 	p.relayState.pcapLogger = new(utils.PCAPLog)
+	p.relayState.DisruptionProtectionEnabled = disruptionProtection
 
 	switch dcNetType {
 	case "Simple":
@@ -166,6 +168,7 @@ func (p *PriFiLibRelayInstance) BroadcastParameters() error {
 	msg.Add("StartNow", true)
 	msg.Add("UpstreamCellSize", p.relayState.UpstreamCellSize)
 	msg.Add("DCNetType", p.relayState.dcNetType)
+	msg.Add("DisruptionProtectionEnabled", p.relayState.DisruptionProtectionEnabled)
 	msg.ForceParams = true
 
 	// Send those parameters to all trustees
