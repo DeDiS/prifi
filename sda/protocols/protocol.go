@@ -123,6 +123,14 @@ func init() {
 	network.RegisterMessage(net.TRU_REL_SHUFFLE_SIG{})
 	network.RegisterMessage(net.TRU_REL_TELL_NEW_BASE_AND_EPH_PKS{})
 	network.RegisterMessage(net.TRU_REL_TELL_PK{})
+	network.RegisterMessage(net.REL_CLI_DISRUPTED_ROUND{})
+	network.RegisterMessage(net.CLI_REL_DISRUPTION_BLAME{})
+	network.RegisterMessage(net.REL_ALL_DISRUPTION_REVEAL{})
+	network.RegisterMessage(net.CLI_REL_DISRUPTION_REVEAL{})
+	network.RegisterMessage(net.TRU_REL_DISRUPTION_REVEAL{})
+	network.RegisterMessage(net.REL_ALL_DISRUPTION_SECRET{})
+	network.RegisterMessage(net.CLI_REL_DISRUPTION_SECRET{})
+	network.RegisterMessage(net.TRU_REL_DISRUPTION_SECRET{})
 
 	onet.GlobalProtocolRegister(ProtocolName, NewPriFiSDAWrapperProtocol)
 }
@@ -223,6 +231,40 @@ func (p *PriFiSDAProtocol) registerHandlers() error {
 		return errors.New("couldn't register handler: " + err.Error())
 	}
 	err = p.RegisterHandler(p.Received_REL_TRU_TELL_RATE_CHANGE)
+	if err != nil {
+		return errors.New("couldn't register handler: " + err.Error())
+	}
+
+	//register blame procedure handlers
+	err = p.RegisterHandler(p.Received_REL_CLI_DISRUPTED_ROUND)
+	if err != nil {
+		return errors.New("couldn't register handler: " + err.Error())
+	}
+	err = p.RegisterHandler(p.Received_CLI_REL_DISRUPTION_BLAME)
+	if err != nil {
+		return errors.New("couldn't register handler: " + err.Error())
+	}
+	err = p.RegisterHandler(p.Received_REL_ALL_DISRUPTION_REVEAL)
+	if err != nil {
+		return errors.New("couldn't register handler: " + err.Error())
+	}
+	err = p.RegisterHandler(p.Received_CLI_REL_DISRUPTION_REVEAL)
+	if err != nil {
+		return errors.New("couldn't register handler: " + err.Error())
+	}
+	err = p.RegisterHandler(p.Received_TRU_REL_DISRUPTION_REVEAL)
+	if err != nil {
+		return errors.New("couldn't register handler: " + err.Error())
+	}
+	err = p.RegisterHandler(p.Received_REL_ALL_DISRUPTION_SECRET)
+	if err != nil {
+		return errors.New("couldn't register handler: " + err.Error())
+	}
+	err = p.RegisterHandler(p.Received_CLI_REL_DISRUPTION_SECRET)
+	if err != nil {
+		return errors.New("couldn't register handler: " + err.Error())
+	}
+	err = p.RegisterHandler(p.Received_TRU_REL_DISRUPTION_SECRET)
 	if err != nil {
 		return errors.New("couldn't register handler: " + err.Error())
 	}

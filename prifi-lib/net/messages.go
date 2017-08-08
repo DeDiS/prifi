@@ -247,3 +247,51 @@ func (m *REL_CLI_DOWNSTREAM_DATA_UDP) FromBytes(buffer []byte) (interface{}, err
 
 	return resultMessage, nil
 }
+
+// REL_CLI_DISRUPTED_ROUND is when the relay detects a disruption, and sends it back to the client
+type REL_CLI_DISRUPTED_ROUND struct {
+	RoundID int32
+	Data    []byte
+}
+
+// CLI_REL_DISRUPTION_BLAME contains a disrupted roundID and the position where a bit was flipped, and is sent to the relay
+type CLI_REL_DISRUPTION_BLAME struct {
+	RoundID int32
+	NIZK    []byte
+	BitPos  int
+}
+
+// REL_ALL_DISRUPTION_REVEAL contains a disrupted roundID and the position where a bit was flipped, and is sent by the relay
+type REL_ALL_DISRUPTION_REVEAL struct {
+	RoundID int32
+	BitPos  int
+}
+
+// CLI_REL_DISRUPTION_REVEAL contains a map with individual bits to find a disruptor, and is sent to the relay
+type CLI_REL_DISRUPTION_REVEAL struct {
+	ClientID int
+	Bits     map[int]int
+}
+
+// TRU_REL_DISRUPTION_REVEAL contains a map with individual bits to find a disruptor, and is sent to the relay
+type TRU_REL_DISRUPTION_REVEAL struct {
+	TrusteeID int
+	Bits      map[int]int
+}
+
+// REL_ALL_DISRUPTION_SECRET contains request ro reveal the shared secret with the specified recipient, and is sent by the relay
+type REL_ALL_DISRUPTION_SECRET struct {
+	UserID int
+}
+
+// CLI_REL_DISRUPTION_SECRET contains the shared secret requested by the relay, with a proof we computed it correctly
+type CLI_REL_DISRUPTION_SECRET struct {
+	Secret abstract.Point
+	NIZK   []byte
+}
+
+// TRU_REL_DISRUPTION_SECRET contains the shared secret requested by the relay, with a proof we computed it correctly
+type TRU_REL_DISRUPTION_SECRET struct {
+	Secret abstract.Point
+	NIZK   []byte
+}

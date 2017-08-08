@@ -76,3 +76,43 @@ func (p *PriFiSDAProtocol) Received_REL_TRU_TELL_TRANSCRIPT(msg Struct_REL_TRU_T
 func (p *PriFiSDAProtocol) Received_REL_TRU_TELL_RATE_CHANGE(msg Struct_REL_TRU_TELL_RATE_CHANGE) error {
 	return p.prifiLibInstance.ReceivedMessage(msg.REL_TRU_TELL_RATE_CHANGE)
 }
+
+// Received_REL_CLI_DISRUPTED_ROUND forward an REL_CLI_DISRUPTED_ROUND message to PriFi's lib
+func (p *PriFiSDAProtocol) Received_REL_CLI_DISRUPTED_ROUND(msg Struct_REL_CLI_DISRUPTED_ROUND) error {
+	return p.prifiLibInstance.ReceivedMessage(msg.REL_CLI_DISRUPTED_ROUND)
+}
+
+// Received_CLI_REL_DISRUPTION_BLAME forward an CLI_REL_DISRUPTION_BLAME message to PriFi's lib
+func (p *PriFiSDAProtocol) Received_CLI_REL_DISRUPTION_BLAME(msg Struct_CLI_REL_DISRUPTION_BLAME) error {
+	return p.prifiLibInstance.ReceivedMessage(msg.CLI_REL_DISRUPTION_BLAME)
+}
+
+// Received_REL_ALL_DISRUPTION_REVEAL forward an REL_ALL_DISRUPTION_REVEAL message to PriFi's lib
+func (p *PriFiSDAProtocol) Received_REL_ALL_DISRUPTION_REVEAL(msg Struct_REL_ALL_DISRUPTION_REVEAL) error {
+	return p.prifiLibInstance.ReceivedMessage(msg.REL_ALL_DISRUPTION_REVEAL)
+}
+
+// Received_CLI_REL_DISRUPTION_REVEAL forward an CLI_REL_DISRUPTION_REVEAL message to PriFi's lib
+func (p *PriFiSDAProtocol) Received_CLI_REL_DISRUPTION_REVEAL(msg Struct_CLI_REL_DISRUPTION_REVEAL) error {
+	return p.prifiLibInstance.ReceivedMessage(msg.CLI_REL_DISRUPTION_REVEAL)
+}
+
+// Received_TRU_REL_DISRUPTION_REVEAL forward an TRU_REL_DISRUPTION_REVEAL message to PriFi's lib
+func (p *PriFiSDAProtocol) Received_TRU_REL_DISRUPTION_REVEAL(msg Struct_TRU_REL_DISRUPTION_REVEAL) error {
+	return p.prifiLibInstance.ReceivedMessage(msg.TRU_REL_DISRUPTION_REVEAL)
+}
+
+// Received_REL_ALL_DISRUPTION_SECRET forward an REL_ALL_DISRUPTION_SECRET message to PriFi's lib
+func (p *PriFiSDAProtocol) Received_REL_ALL_DISRUPTION_SECRET(msg Struct_REL_ALL_DISRUPTION_SECRET) error {
+	return p.prifiLibInstance.ReceivedMessage(msg.REL_ALL_DISRUPTION_SECRET)
+}
+
+// Received_CLI_REL_DISRUPTION_SECRET forward an CLI_REL_DISRUPTION_SECRET message to PriFi's lib
+func (p *PriFiSDAProtocol) Received_CLI_REL_DISRUPTION_SECRET(msg Struct_CLI_REL_DISRUPTION_SECRET) error {
+	return p.prifiLibInstance.ReceivedMessage(msg.CLI_REL_DISRUPTION_SECRET)
+}
+
+// Received_TRU_REL_DISRUPTION_SECRET forward an TRU_REL_DISRUPTION_SECRET message to PriFi's lib
+func (p *PriFiSDAProtocol) Received_TRU_REL_DISRUPTION_SECRET(msg Struct_TRU_REL_DISRUPTION_SECRET) error {
+	return p.prifiLibInstance.ReceivedMessage(msg.TRU_REL_DISRUPTION_SECRET)
+}

@@ -393,7 +393,7 @@ func (p *PriFiLibClientInstance) SendUpstreamData() error {
 	upstreamCell := p.clientState.DCNet_FF.ClientEncodeForRound(p.clientState.RoundNo, upstreamCellContent, p.clientState.PayloadLength, p.clientState.MessageHistory)
 
 	//send the data to the relay
-	hmac := nil
+	hmac := make([]byte, 0)
 	if p.clientState.DisruptionProtectionEnabled {
 		hmac = p.computeHmac256(upstreamCellContent)
 	}
@@ -514,7 +514,7 @@ func (p *PriFiLibClientInstance) Received_REL_CLI_TELL_EPH_PKS_AND_TRUSTEES_SIG(
 	upstreamCell := p.clientState.DCNet_FF.ClientEncodeForRound(0, blank, p.clientState.PayloadLength, p.clientState.MessageHistory)
 
 	//send the data to the relay
-	hmac := nil
+	hmac := make([]byte, 0)
 	if p.clientState.DisruptionProtectionEnabled {
 		hmac = p.computeHmac256(blank)
 	}
