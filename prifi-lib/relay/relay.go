@@ -150,6 +150,7 @@ func (p *PriFiLibRelayInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PARA
 		p.BroadcastParameters()
 	}
 	log.Lvl1("Relay setup done, and setup sent to the trustees.")
+	timing.StartMeasure("shuffle")
 
 	return nil
 }
@@ -729,6 +730,7 @@ func (p *PriFiLibRelayInstance) Received_TRU_REL_SHUFFLE_SIG(msg net.TRU_REL_SHU
 		log.Lvl2("Relay : ready to communicate.")
 		p.stateMachine.ChangeState("COMMUNICATING")
 
+		timing.StopMeasure("shuffle")
 		timing.StopMeasure("resync")
 
 		// broadcast to all clients
