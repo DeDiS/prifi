@@ -143,7 +143,7 @@ func (p *PriFiLibTrusteeInstance) Send_TRU_REL_DC_CIPHER(rateChan chan int16) {
 
 			} else if currentRate == TRUSTEE_RATE_HALVED {
 				if !p.trusteeState.NeverSlowDown { //sorry double neg. If NeverSlowDown = true, we skip this sleep
-					time.Sleep(1 * TRUSTEE_BASE_SLEEP_TIME)
+					time.Sleep(TRUSTEE_BASE_SLEEP_TIME)
 				}
 				newRoundID, err := sendData(p, roundID)
 				if err != nil {

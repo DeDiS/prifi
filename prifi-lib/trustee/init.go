@@ -46,7 +46,7 @@ func NewTrustee(neverSlowDown bool, msgSender *net.MessageSenderWrapper) *PriFiL
 	trusteeState.NeverSlowDown = neverSlowDown
 
 	//init the state machine
-	states := []string{"BEFORE_INIT", "INITIALIZING", "SHUFFLE_DONE", "READY", "SHUTDOWN"}
+	states := []string{"BEFORE_INIT", "INITIALIZING", "SHUFFLE_DONE", "READY", "BLAMING", "SHUTDOWN"}
 	sm := new(utils.StateMachine)
 	logFn := func(s interface{}) {
 		log.Lvl3(s)
@@ -119,6 +119,16 @@ func (p *PriFiLibTrusteeInstance) ReceivedMessage(msg interface{}) error {
 	case net.REL_TRU_TELL_RATE_CHANGE:
 		if p.stateMachine.AssertState("READY") {
 			err = p.Received_REL_TRU_TELL_RATE_CHANGE(typedMsg)
+		}
+	case net.REL_ALL_DISRUPTION_REVEAL:
+		if p.stateMachine.AssertState("READY") {
+			log.Fatal("not implemented")
+			//err = p.Received_REL_ALL_REVEAL(typedMsg)
+		}
+	case net.REL_ALL_DISRUPTION_SECRET:
+		if p.stateMachine.AssertState("BLAMING") {
+			log.Fatal("not implemented")
+			//err = p.Received_REL_ALL_SECRET(typedMsg)
 		}
 	default:
 		err = errors.New("Unrecognized message, type" + reflect.TypeOf(msg).String())

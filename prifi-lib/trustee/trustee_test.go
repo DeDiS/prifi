@@ -17,6 +17,7 @@ import (
  * Message Sender
  */
 type TestMessageSender struct {
+	sentToRelay chan interface{}
 }
 
 func (t *TestMessageSender) SendToClient(i int, msg interface{}) error {
@@ -26,10 +27,8 @@ func (t *TestMessageSender) SendToTrustee(i int, msg interface{}) error {
 	return errors.New("Trustees should never sent to other trustees")
 }
 
-var sentToRelay chan interface{}
-
 func (t *TestMessageSender) SendToRelay(msg interface{}) error {
-	sentToRelay <- msg
+	t.sentToRelay <- msg
 	return nil
 }
 func (t *TestMessageSender) BroadcastToAllClients(msg interface{}) error {
@@ -45,7 +44,6 @@ func (t *TestMessageSender) ClientSubscribeToBroadcast(clientID int, messageRece
 
 func newTestMessageSenderWrapper(msgSender net.MessageSender) *net.MessageSenderWrapper {
 
-	sentToRelay = make(chan interface{}, 10)
 	errHandling := func(e error) {}
 	loggingSuccessFunction := func(e interface{}) { log.Lvl3(e) }
 	loggingErrorFunction := func(e interface{}) { log.Error(e) }
@@ -60,6 +58,7 @@ func newTestMessageSenderWrapper(msgSender net.MessageSender) *net.MessageSender
 func TestTrustee(t *testing.T) {
 
 	msgSender := new(TestMessageSender)
+	msgSender.sentToRelay = make(chan interface{}, 15)
 	msw := newTestMessageSenderWrapper(msgSender)
 	neverSlowDown := false
 	trustee := NewTrustee(neverSlowDown, msw)
@@ -146,7 +145,7 @@ func TestTrustee(t *testing.T) {
 
 	//Should send a TRU_REL_TELL_PK
 	select {
-	case msg3 := <-sentToRelay:
+	case msg3 := <- msgSender.sentToRelay:
 		msg3_parsed := msg3.(*net.TRU_REL_TELL_PK)
 		if msg3_parsed.TrusteeID != trusteeID {
 			t.Error("Trustee sent a wrong trustee ID")
@@ -202,7 +201,7 @@ func TestTrustee(t *testing.T) {
 
 	//Should have sent a TRU_REL_TELL_NEW_BASE_AND_EPH_PKS
 	select {
-	case msg5 := <-sentToRelay:
+	case msg5 := <- msgSender.sentToRelay:
 		msg5_parsed := msg5.(*net.TRU_REL_TELL_NEW_BASE_AND_EPH_PKS)
 		_, err = n.RelayView.ReceivedShuffleFromTrustee(msg5_parsed.NewBase, msg5_parsed.NewEphPks, msg5_parsed.Proof)
 		if err != nil {
@@ -225,7 +224,7 @@ func TestTrustee(t *testing.T) {
 
 	//should the signed shuffle
 	select {
-	case msgX := <-sentToRelay:
+	case msgX := <- msgSender.sentToRelay:
 		_ = msgX.(*net.TRU_REL_SHUFFLE_SIG)
 	default:
 		t.Error("Trustee should have sent a TRU_REL_SHUFFLE_SIG to the relay")
@@ -247,7 +246,7 @@ func TestTrustee(t *testing.T) {
 
 	//should have sent a few ciphers before getting the stop message
 	select {
-	case msg8 := <-sentToRelay:
+	case msg8 := <- msgSender.sentToRelay:
 		msg8_parsed := msg8.(*net.TRU_REL_DC_CIPHER)
 
 		if msg8_parsed.TrusteeID != trusteeID {
@@ -270,7 +269,7 @@ func TestTrustee(t *testing.T) {
 	empty := false
 	for !empty {
 		select {
-		case <-sentToRelay:
+		case <- msgSender.sentToRelay:
 			//nothing
 		default:
 			empty = true
@@ -280,7 +279,7 @@ func TestTrustee(t *testing.T) {
 	time.Sleep(3 * TRUSTEE_BASE_SLEEP_TIME)
 
 	select {
-	case _ = <-sentToRelay:
+	case _ = <- msgSender.sentToRelay:
 		//t.Error("Trustee should not have sent a TRU_REL_DC_CIPHER to the relay")
 	default:
 	}
@@ -298,7 +297,7 @@ func TestTrustee(t *testing.T) {
 	time.Sleep(3 * TRUSTEE_BASE_SLEEP_TIME)
 
 	select {
-	case msg8 := <-sentToRelay:
+	case msg8 := <- msgSender.sentToRelay:
 		msg8_parsed := msg8.(*net.TRU_REL_DC_CIPHER)
 
 		if msg8_parsed.TrusteeID != trusteeID {
