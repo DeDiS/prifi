@@ -24,7 +24,7 @@ import (
 const FILE_SIMULATION_ID = ".simID"
 
 // SIMULATION_ROUND_TIMEOUT_SECONDS is define the max duration of one round of the simulation
-const SIMULATION_ROUND_TIMEOUT_SECONDS = 360
+var SIMULATION_ROUND_TIMEOUT_SECONDS int = 360
 
 /*
  * Defines the simulation for the service-template
@@ -204,12 +204,21 @@ func (s *SimulationService) Run(config *onet.SimulationConfig) error {
 	//block and get the result from the channel
 	var resStringArray []string
 
-	log.Info("Giving the experiment", SIMULATION_ROUND_TIMEOUT_SECONDS, " seconds to finish before aborting...")
+	if s.PrifiTomlConfig.SimulDelayBetweenClients > 0 {
+		nClients := s.Hosts - 1 - s.NTrustees
+		timeForAllClientsPlusOne := 5 + s.PrifiTomlConfig.SimulDelayBetweenClients * (nClients + 1)
+
+		if SIMULATION_ROUND_TIMEOUT_SECONDS < timeForAllClientsPlusOne {
+			SIMULATION_ROUND_TIMEOUT_SECONDS = timeForAllClientsPlusOne
+		}
+	}
+
+	log.Lvl1("Giving the experiment", SIMULATION_ROUND_TIMEOUT_SECONDS, "seconds to finish before aborting...")
 	select {
 	case res := <-service.PriFiSDAProtocol.ResultChannel:
 		resStringArray = res.([]string)
 
-	case <-time.After(SIMULATION_ROUND_TIMEOUT_SECONDS * time.Second):
+	case <-time.After(time.Duration(SIMULATION_ROUND_TIMEOUT_SECONDS) * time.Second):
 		resStringArray = make([]string, 1)
 		resStringArray[0] = "!!simulation timed out."
 	}

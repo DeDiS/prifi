@@ -152,7 +152,10 @@ func (p *PriFiLibRelayInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PARA
 		p.BroadcastParameters()
 	}
 	log.Lvl1("Relay setup done, and setup sent to the trustees.")
-	timing.StartMeasure("shuffle")
+
+	timing.StopMeasureAndLogWithInfo("resync-boot", strconv.Itoa(p.relayState.nClients))
+	timing.StartMeasure("resync-shuffle")
+	timing.StartMeasure("resync-shuffle-collect-client-pk")
 
 	return nil
 }
@@ -598,6 +601,10 @@ func (p *PriFiLibRelayInstance) Received_CLI_REL_TELL_PK_AND_EPH_PK(msg net.CLI_
 	// if we have collected all clients, continue
 	if p.relayState.nClientsPkCollected == p.relayState.nClients {
 
+
+		timing.StopMeasureAndLogWithInfo("resync-shuffle-collect-client-pk", strconv.Itoa(p.relayState.nClients))
+		timing.StartMeasure("resync-shuffle-trustee-1step")
+
 		p.relayState.neffShuffle.Init(p.relayState.nTrustees)
 
 		for i := 0; i < p.relayState.nClients; i++ {
@@ -669,6 +676,10 @@ func (p *PriFiLibRelayInstance) Received_TRU_REL_TELL_NEW_BASE_AND_EPH_PKS(msg n
 	} else {
 		// if we have all the shuffles
 
+
+		timing.StopMeasureAndLogWithInfo("resync-shuffle-trustee-1step", strconv.Itoa(p.relayState.nClients))
+		timing.StartMeasure("resync-shuffle-trustee-2step")
+
 		msg, err := p.relayState.neffShuffle.SendTranscript()
 		if err != nil {
 			e := "Could not do p.relayState.neffShuffle.SendTranscript(), error is " + err.Error()
@@ -733,8 +744,10 @@ func (p *PriFiLibRelayInstance) Received_TRU_REL_SHUFFLE_SIG(msg net.TRU_REL_SHU
 		log.Lvl2("Relay : ready to communicate.")
 		p.stateMachine.ChangeState("COMMUNICATING")
 
-		timing.StopMeasure("shuffle")
-		timing.StopMeasure("resync")
+
+		timing.StopMeasureAndLogWithInfo("resync-shuffle-trustee-2step", strconv.Itoa(p.relayState.nClients))
+		timing.StopMeasureAndLogWithInfo("resync-shuffle", strconv.Itoa(p.relayState.nClients))
+		timing.StopMeasureAndLogWithInfo("resync", strconv.Itoa(p.relayState.nClients))
 
 		// broadcast to all clients
 		for i := 0; i < p.relayState.nClients; i++ {

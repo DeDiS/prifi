@@ -142,6 +142,7 @@ func (s *ServiceState) StartPriFiCommunicateProtocol() {
 	}
 
 	timing.StartMeasure("resync")
+	timing.StartMeasure("resync-boot")
 
 	var wrapper *prifi_protocol.PriFiSDAProtocol
 	roster := s.churnHandler.createRoster()
