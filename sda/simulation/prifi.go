@@ -24,7 +24,7 @@ import (
 const FILE_SIMULATION_ID = ".simID"
 
 // SIMULATION_ROUND_TIMEOUT_SECONDS is define the max duration of one round of the simulation
-var SIMULATION_ROUND_TIMEOUT_SECONDS int = 360
+var SIMULATION_ROUND_TIMEOUT_SECONDS = 360
 
 /*
  * Defines the simulation for the service-template
@@ -206,7 +206,7 @@ func (s *SimulationService) Run(config *onet.SimulationConfig) error {
 
 	if s.PrifiTomlConfig.SimulDelayBetweenClients > 0 {
 		nClients := s.Hosts - 1 - s.NTrustees
-		timeForAllClientsPlusOne := 5 + s.PrifiTomlConfig.SimulDelayBetweenClients * (nClients + 1)
+		timeForAllClientsPlusOne := 5 + s.PrifiTomlConfig.SimulDelayBetweenClients*(nClients+1)
 
 		if SIMULATION_ROUND_TIMEOUT_SECONDS < timeForAllClientsPlusOne {
 			SIMULATION_ROUND_TIMEOUT_SECONDS = timeForAllClientsPlusOne

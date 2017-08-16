@@ -82,9 +82,9 @@ func (p *PriFiLibClientInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PAR
 
 	switch dcNetType {
 	case "Simple":
-		p.clientState.DCNet_FF.CellCoder = dcnet.SimpleCoderFactory()
+		p.clientState.DCNet_RoundManager.CellCoder = dcnet.SimpleCoderFactory()
 	case "Verifiable":
-		p.clientState.DCNet_FF.CellCoder = dcnet.OwnedCoderFactory()
+		p.clientState.DCNet_RoundManager.CellCoder = dcnet.OwnedCoderFactory()
 	default:
 		log.Fatal("DCNetType must be Simple or Verifiable")
 	}
@@ -96,7 +96,7 @@ func (p *PriFiLibClientInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PAR
 	p.clientState.nClients = nClients
 	p.clientState.nTrustees = nTrustees
 	p.clientState.PayloadLength = upCellSize
-	p.clientState.UsablePayloadLength = p.clientState.DCNet_FF.CellCoder.ClientCellSize(upCellSize)
+	p.clientState.UsablePayloadLength = p.clientState.DCNet_RoundManager.CellCoder.ClientCellSize(upCellSize)
 	p.clientState.UseUDP = useUDP
 	p.clientState.TrusteePublicKey = make([]abstract.Point, nTrustees)
 	p.clientState.sharedSecrets = make([]abstract.Point, nTrustees)
@@ -156,9 +156,6 @@ func (p *PriFiLibClientInstance) Received_REL_CLI_DOWNSTREAM_DATA(msg net.REL_CL
 		log.Lvl3("Client "+strconv.Itoa(p.clientState.ID)+" : Skipping from round", p.clientState.RoundNo, "to round", msg.RoundID)
 		p.clientState.RoundNo = msg.RoundID
 		return p.ProcessDownStreamData(msg)
-		//this is not used anymore, with the Open/Closed slot schedule
-		//log.Lvl3("Client " + strconv.Itoa(p.clientState.ID) + " : Received a REL_CLI_DOWNSTREAM_DATA for round " + strconv.Itoa(int(msg.RoundID)) + " but we are in round " + strconv.Itoa(int(p.clientState.RoundNo)) + ", buffering.")
-		//p.clientState.BufferedRoundData[msg.RoundID] = msg
 	}
 
 	return nil
@@ -247,7 +244,7 @@ func (p *PriFiLibClientInstance) ProcessDownStreamData(msg net.REL_CLI_DOWNSTREA
 		contribution := bmc.Client_GetOpenScheduleContribution()
 
 		//produce the next upstream cell
-		upstreamCell := p.clientState.DCNet_FF.ClientEncodeForRound(p.clientState.RoundNo, contribution, p.clientState.PayloadLength, p.clientState.MessageHistory)
+		upstreamCell := p.clientState.DCNet_RoundManager.ClientEncodeForRound(p.clientState.RoundNo, contribution, p.clientState.PayloadLength, p.clientState.MessageHistory)
 
 		//send the data to the relay
 		toSend := &net.CLI_REL_OPENCLOSED_DATA{
@@ -386,11 +383,15 @@ func (p *PriFiLibClientInstance) SendUpstreamData() error {
 					}
 				}
 			}
+
+			//content := make([]byte, len(upstreamCellContent))
+			//copy(content[:], upstreamCellContent[:])
+			//p.clientState.DataHistory[p.clientState.RoundNo] = content
 		}
 	}
 
 	//produce the next upstream cell
-	upstreamCell := p.clientState.DCNet_FF.ClientEncodeForRound(p.clientState.RoundNo, upstreamCellContent, p.clientState.PayloadLength, p.clientState.MessageHistory)
+	upstreamCell := p.clientState.DCNet_RoundManager.ClientEncodeForRound(p.clientState.RoundNo, upstreamCellContent, p.clientState.PayloadLength, p.clientState.MessageHistory)
 
 	//send the data to the relay
 	hmac := make([]byte, 0)
@@ -449,7 +450,7 @@ func (p *PriFiLibClientInstance) Received_REL_CLI_TELL_TRUSTEES_PK(msg net.REL_C
 		}
 		sharedPRNGs[i] = config.CryptoSuite.Cipher(bytes)
 	}
-	p.clientState.DCNet_FF.CellCoder.ClientSetup(config.CryptoSuite, sharedPRNGs)
+	p.clientState.DCNet_RoundManager.CellCoder.ClientSetup(config.CryptoSuite, sharedPRNGs)
 
 	//then, generate our ephemeral keys (used for shuffling)
 	p.clientState.EphemeralPublicKey, p.clientState.ephemeralPrivateKey = crypto.NewKeyPair()
@@ -511,7 +512,7 @@ func (p *PriFiLibClientInstance) Received_REL_CLI_TELL_EPH_PKS_AND_TRUSTEES_SIG(
 
 	//produce a blank cell (we could embed data, but let's keep the code simple, one wasted message is not much)
 	blank := make([]byte, 0)
-	upstreamCell := p.clientState.DCNet_FF.ClientEncodeForRound(0, blank, p.clientState.PayloadLength, p.clientState.MessageHistory)
+	upstreamCell := p.clientState.DCNet_RoundManager.ClientEncodeForRound(0, blank, p.clientState.PayloadLength, p.clientState.MessageHistory)
 
 	//send the data to the relay
 	hmac := make([]byte, 0)

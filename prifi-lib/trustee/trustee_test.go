@@ -130,8 +130,8 @@ func TestTrustee(t *testing.T) {
 	if ts.ID != trusteeID {
 		t.Error("ID should be 3")
 	}
-	if ts.CellCoder == nil {
-		t.Error("CellCoder should have been created")
+	if ts.DCNet_RoundManager == nil {
+		t.Error("DCNet_RoundManager should have been created")
 	}
 	if len(ts.ClientPublicKeys) != nClients {
 		t.Error("Len(TrusteePKs) should be equal to NTrustees")

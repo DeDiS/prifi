@@ -90,7 +90,7 @@ func NewRelay(dataOutputEnabled bool, dataForClients chan []byte, dataFromDCNet 
 	relayState.Name = "Relay"
 
 	//init the state machine
-	states := []string{"BEFORE_INIT", "COLLECTING_TRUSTEES_PKS", "COLLECTING_CLIENT_PKS", "COLLECTING_SHUFFLES", "COLLECTING_SHUFFLE_SIGNATURES", "COMMUNICATING", "SHUTDOWN"}
+	states := []string{"BEFORE_INIT", "COLLECTING_TRUSTEES_PKS", "COLLECTING_CLIENT_PKS", "COLLECTING_SHUFFLES", "COLLECTING_SHUFFLE_SIGNATURES", "COMMUNICATING", "BLAMING", "SHUTDOWN"}
 	sm := new(utils.StateMachine)
 	logFn := func(s interface{}) {
 		log.Lvl2(s)
@@ -176,6 +176,11 @@ type RelayState struct {
 	time0                             uint64
 	pcapLogger                        *utils.PCAPLog
 	DisruptionProtectionEnabled       bool
+
+	//disruption protection
+	clientBitMap  map[int]map[int]int
+	trusteeBitMap map[int]map[int]int
+	blamingData   []int //[round#, bitPos, clientID, bitRevealed, trusteeID, bitRevealed]
 
 	//Used for verifiable DC-net, part of the dcnet/owned.go
 	VerifiableDCNetKeys [][]byte

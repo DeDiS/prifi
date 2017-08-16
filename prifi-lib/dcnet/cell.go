@@ -29,7 +29,7 @@ type CellCoder interface {
 	// transmitting the optional payload if non-nil.
 	ClientEncode(payload []byte, payloadlen int, history abstract.Cipher) []byte
 
-	///// Client methods /////
+	///// Trustee methods /////
 
 	TrusteeSetup(suite abstract.Suite, clientciphers []abstract.Cipher) []byte
 

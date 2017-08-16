@@ -125,8 +125,8 @@ func TestClient(t *testing.T) {
 	if cs.UseUDP != true {
 		t.Error("UseUDP should now have been set to true")
 	}
-	if cs.DCNet_FF == nil {
-		t.Error("DCNet_FF should have been created")
+	if cs.DCNet_RoundManager == nil {
+		t.Error("DCNet_RoundManager should have been created")
 	}
 	if len(cs.TrusteePublicKey) != nTrustees {
 		t.Error("Len(TrusteePKs) should be equal to NTrustees")

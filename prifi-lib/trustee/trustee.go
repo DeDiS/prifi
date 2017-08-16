@@ -68,9 +68,9 @@ func (p *PriFiLibTrusteeInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PA
 
 	switch dcNetType {
 	case "Simple":
-		p.trusteeState.CellCoder = dcnet.SimpleCoderFactory()
+		p.trusteeState.DCNet_RoundManager.CellCoder = dcnet.SimpleCoderFactory()
 	case "Verifiable":
-		p.trusteeState.CellCoder = dcnet.OwnedCoderFactory()
+		p.trusteeState.DCNet_RoundManager.CellCoder = dcnet.OwnedCoderFactory()
 	default:
 		log.Fatal("DCNetType must be Simple or Verifiable")
 	}
@@ -182,7 +182,7 @@ sendData is an auxiliary function used by Send_TRU_REL_DC_CIPHER. It computes th
 It returns the new round number (previous + 1).
 */
 func sendData(p *PriFiLibTrusteeInstance, roundID int32) (int32, error) {
-	data := p.trusteeState.CellCoder.TrusteeEncode(p.trusteeState.PayloadLength)
+	data := p.trusteeState.DCNet_RoundManager.TrusteeEncode(p.trusteeState.PayloadLength)
 
 	//send the data
 	toSend := &net.TRU_REL_DC_CIPHER{
@@ -243,7 +243,8 @@ func (p *PriFiLibTrusteeInstance) Received_REL_TRU_TELL_CLIENTS_PKS_AND_EPH_PKS_
 		sharedPRNGs[i] = config.CryptoSuite.Cipher(bytes)
 	}
 
-	vkey := p.trusteeState.CellCoder.TrusteeSetup(config.CryptoSuite, sharedPRNGs)
+	p.trusteeState.DCNet_RoundManager.TrusteeSetup(p.trusteeState.sharedSecrets)
+	vkey := p.trusteeState.DCNet_RoundManager.CellCoder.TrusteeSetup(config.CryptoSuite, sharedPRNGs)
 	//In case we use the simple dcnet, vkey isn't needed
 	if vkey == nil {
 		vkey = make([]byte, 1)
@@ -287,5 +288,33 @@ func (p *PriFiLibTrusteeInstance) Received_REL_TRU_TELL_TRANSCRIPT(msg net.REL_T
 	//everything is ready, we start sending
 	go p.Send_TRU_REL_DC_CIPHER(p.trusteeState.sendingRate)
 
+	return nil
+}
+
+/*
+Received_REL_ALL_REVEAL handles REL_ALL_REVEAL messages.
+We send back one bit per client, from the shared cipher, at bitPos
+*/
+func (p *PriFiLibTrusteeInstance) Received_REL_ALL_REVEAL(msg net.REL_ALL_DISRUPTION_REVEAL) error {
+	p.stateMachine.ChangeState("BLAMING")
+	bits := p.trusteeState.DCNet_RoundManager.RevealBits(msg.RoundID, msg.BitPos, p.trusteeState.PayloadLength)
+	toSend := &net.TRU_REL_DISRUPTION_REVEAL{
+		TrusteeID: p.trusteeState.ID,
+		Bits:      bits}
+	p.messageSender.SendToRelayWithLog(toSend, "Revealed bits")
+	return nil
+}
+
+/*
+Received_REL_ALL_SECRET handles REL_ALL_SECRET messages.
+We send back the shared secret with the indicated client
+*/
+func (p *PriFiLibTrusteeInstance) Received_REL_ALL_SECRET(msg net.REL_ALL_DISRUPTION_SECRET) error {
+
+	secret := p.trusteeState.sharedSecrets[msg.UserID]
+	toSend := &net.TRU_REL_DISRUPTION_SECRET{
+		Secret: secret,
+		NIZK:   make([]byte, 0)}
+	p.messageSender.SendToRelayWithLog(toSend, "Sent secret to relay")
 	return nil
 }

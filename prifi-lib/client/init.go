@@ -36,7 +36,7 @@ import (
 
 // ClientState contains the mutable state of the client.
 type ClientState struct {
-	DCNet_FF                    *DCNet_FastForwarder
+	DCNet_RoundManager          *DCNet_RoundManager
 	currentState                int16
 	DataForDCNet                chan []byte //Data to the relay : VPN / SOCKS should put data there !
 	NextDataForDCNet            *[]byte     //if not nil, send this before polling DataForDCNet
@@ -108,7 +108,7 @@ func NewClient(doLatencyTest bool, dataOutputEnabled bool, dataForDCNet chan []b
 	clientState.NextDataForDCNet = nil
 	clientState.DataFromDCNet = dataFromDCNet
 	clientState.DataOutputEnabled = dataOutputEnabled
-	clientState.DCNet_FF = new(DCNet_FastForwarder)
+	clientState.DCNet_RoundManager = new(DCNet_RoundManager)
 	clientState.pcapReplay = &PCAPReplayer{
 		Enabled:    doReplayPcap,
 		PCAPFolder: pcapFolder,
@@ -116,7 +116,7 @@ func NewClient(doLatencyTest bool, dataOutputEnabled bool, dataForDCNet chan []b
 	}
 
 	//init the state machine
-	states := []string{"BEFORE_INIT", "INITIALIZING", "EPH_KEYS_SENT", "READY", "SHUTDOWN"}
+	states := []string{"BEFORE_INIT", "INITIALIZING", "EPH_KEYS_SENT", "READY", "BLAMING", "SHUTDOWN"}
 	sm := new(utils.StateMachine)
 	logFn := func(s interface{}) {
 		log.Lvl2(s)

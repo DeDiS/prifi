@@ -117,6 +117,9 @@ func (p *PriFiLibRelayInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PARA
 	p.relayState.time0 = uint64(prifilog.MsTimeStampNow())
 	p.relayState.pcapLogger = new(utils.PCAPLog)
 	p.relayState.DisruptionProtectionEnabled = disruptionProtection
+	p.relayState.clientBitMap = make(map[int]map[int]int)
+	p.relayState.trusteeBitMap = make(map[int]map[int]int)
+	p.relayState.blamingData = make([]int, 6)
 
 	switch dcNetType {
 	case "Simple":
@@ -601,7 +604,6 @@ func (p *PriFiLibRelayInstance) Received_CLI_REL_TELL_PK_AND_EPH_PK(msg net.CLI_
 	// if we have collected all clients, continue
 	if p.relayState.nClientsPkCollected == p.relayState.nClients {
 
-
 		timing.StopMeasureAndLogWithInfo("resync-shuffle-collect-client-pk", strconv.Itoa(p.relayState.nClients))
 		timing.StartMeasure("resync-shuffle-trustee-1step")
 
@@ -676,7 +678,6 @@ func (p *PriFiLibRelayInstance) Received_TRU_REL_TELL_NEW_BASE_AND_EPH_PKS(msg n
 	} else {
 		// if we have all the shuffles
 
-
 		timing.StopMeasureAndLogWithInfo("resync-shuffle-trustee-1step", strconv.Itoa(p.relayState.nClients))
 		timing.StartMeasure("resync-shuffle-trustee-2step")
 
@@ -743,7 +744,6 @@ func (p *PriFiLibRelayInstance) Received_TRU_REL_SHUFFLE_SIG(msg net.TRU_REL_SHU
 		p.relayState.roundManager.OpenNextRound()
 		log.Lvl2("Relay : ready to communicate.")
 		p.stateMachine.ChangeState("COMMUNICATING")
-
 
 		timing.StopMeasureAndLogWithInfo("resync-shuffle-trustee-2step", strconv.Itoa(p.relayState.nClients))
 		timing.StopMeasureAndLogWithInfo("resync-shuffle", strconv.Itoa(p.relayState.nClients))
