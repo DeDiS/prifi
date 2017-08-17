@@ -780,7 +780,7 @@ case $1 in
 
 		"$thisScript" simul-cl
 
-		for repeat in {1..3}
+		for repeat in {1..5}
 		do
 			for i in {5..95..5}
 			do
@@ -792,8 +792,6 @@ case $1 in
 				sed "s/Hosts = x/Hosts = $hosts/g" "$TEMPLATE_FILE" > "$CONFIG_FILE"
 
 				timeout "$TIMEOUT" "$thisScript" simul | tee experiment_${i}_${repeat}.txt
-
-				exit 1
 			done
 		done
 
