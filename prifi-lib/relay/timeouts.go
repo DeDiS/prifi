@@ -26,21 +26,13 @@ func (p *PriFiLibRelayInstance) checkIfRoundHasEndedAfterTimeOut_Phase1(roundID 
 		return //nothing to ensure in that case
 	}
 
-	log.Error(p.relayState.roundManager.openRounds)
-	log.Error("waitAndCheckIfClientsSentData : We seem to be stuck in round", roundID, ". Phase 1 timeout.")
-
+	currRound := p.relayState.roundManager.CurrentRound()
 	missingClientCiphers, missingTrusteesCiphers := p.relayState.roundManager.MissingCiphersForCurrentRound()
+	log.Error("waitAndCheckIfClientsSentData : We seem to be stuck in round", roundID, ", RoundManager says:", currRound, missingClientCiphers, missingTrusteesCiphers,". Phase 1 timeout.")
 
 	//If we're using UDP, client might have missed the broadcast, re-sending
 	if p.relayState.UseUDP {
-		/*
-			for clientID := range missingClientCiphers {
-				log.Error("Relay : Client " + strconv.Itoa(clientID) + " didn't sent us is cipher for round " + strconv.Itoa(int(roundID)) + ". Phase 1 timeout. Re-sending...")
-				extraInfo := "(client " + strconv.Itoa(clientID) + ", round " + strconv.Itoa(int(roundID)) + ")"
-				dataAlreadySent := p.relayState.dcnetRoundManager.GetDataAlreadySent(roundID)
-				p.messageSender.SendToClientWithLog(clientID, dataAlreadySent, extraInfo)
-			}
-		*/
+
 		log.Error("Relay : Clients", missingClientCiphers, "didn't sent us is cipher for round "+strconv.Itoa(int(roundID))+". Phase 1 timeout. Re-sending...")
 		dataAlreadySent := p.relayState.roundManager.GetDataAlreadySent(roundID)
 		toSend := &net.REL_CLI_DOWNSTREAM_DATA_UDP{REL_CLI_DOWNSTREAM_DATA: *dataAlreadySent}

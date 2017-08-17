@@ -143,8 +143,9 @@ func (s *SimulationService) Node(config *onet.SimulationConfig) error {
 	} else if index > 0 && index <= s.NTrustees {
 		log.Lvl1("Initiating this node (index ", index, ") as trustee")
 		time.Sleep(5 * time.Second)
-		err = service.StartTrustee(group)
+		err = service.StartTrustee(group) //let the relay boot
 	} else {
+		time.Sleep(5 * time.Second) //let the relay boot
 		if s.PrifiTomlConfig.SimulDelayBetweenClients > 0 {
 			clientIndex := index - 1 - s.NTrustees
 			timeToSleep := 5 + s.PrifiTomlConfig.SimulDelayBetweenClients*clientIndex
