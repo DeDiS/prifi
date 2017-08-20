@@ -51,9 +51,9 @@ func NewPriFiClient(doLatencyTest bool, dataOutputEnabled bool, dataForDCNet cha
 }
 
 // NewPriFiRelay creates a new PriFi relay
-func NewPriFiRelay(dataOutputEnabled bool, dataForClients chan []byte, dataFromDCNet chan []byte, experimentResultChan chan interface{}, timeoutHandler func([]int, []int), msgSender net.MessageSender) *PriFiLibInstance {
+func NewPriFiRelay(dataOutputEnabled bool, dataForClients chan []byte, dataFromDCNet chan []byte, experimentResultChan chan interface{}, openClosedSlotsMinDelayBetweenRequests int, timeoutHandler func([]int, []int), msgSender net.MessageSender) *PriFiLibInstance {
 	msw := newMessageSenderWrapper(msgSender)
-	r := relay.NewRelay(dataOutputEnabled, dataForClients, dataFromDCNet, experimentResultChan, timeoutHandler, msw)
+	r := relay.NewRelay(dataOutputEnabled, dataForClients, dataFromDCNet, experimentResultChan, openClosedSlotsMinDelayBetweenRequests, timeoutHandler, msw)
 	p := &PriFiLibInstance{
 		role: PRIFI_ROLE_RELAY,
 		specializedLibInstance: r,

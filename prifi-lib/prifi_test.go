@@ -41,8 +41,9 @@ func TestPrifi(t *testing.T) {
 
 	timeoutHandler := func(clients, trustees []int) { log.Error(clients, trustees) }
 	resultChan := make(chan interface{}, 1)
+	ocSleep := 1000
 
-	relay := NewPriFiRelay(true, in, out, resultChan, timeoutHandler, msgSender)
+	relay := NewPriFiRelay(true, in, out, resultChan, ocSleep, timeoutHandler, msgSender)
 
 	neverSlowDown := false
 	trustee0 := NewPriFiTrustee(neverSlowDown, msgSender)

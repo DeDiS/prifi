@@ -88,6 +88,8 @@ func (bmr *BitMaskSlotScheduler_Relay) Relay_CombineContributions(contributions 
 // Relay_ComputeFinalSchedule computes the map[int32]bool of open slots in the next round given the stored contributions
 func (bmr *BitMaskSlotScheduler_Relay) Relay_ComputeFinalSchedule(allContributions []byte, baseRoundID int32, maxSlots int) map[int32]bool {
 
+	//this schedules goes from [baseRoundID; baseRoundID+maxSlots[
+	endRoundID := baseRoundID + int32(maxSlots) - 1
 	res := make(map[int32]bool)
 
 	for byteIndex, b := range allContributions {
@@ -99,7 +101,7 @@ func (bmr *BitMaskSlotScheduler_Relay) Relay_ComputeFinalSchedule(allContributio
 			} else {
 				res[roundID] = false
 			}
-			if bitPos == uint(maxSlots)-1 {
+			if roundID == endRoundID {
 				return res
 			}
 		}

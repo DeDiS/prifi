@@ -200,8 +200,6 @@ func (p *PriFiLibRelayInstance) BroadcastParameters() error {
 // pseudonymous clients want to transmit in a given round
 func (p *PriFiLibRelayInstance) Received_CLI_REL_OPENCLOSED_DATA(msg net.CLI_REL_OPENCLOSED_DATA) error {
 
-	log.Error("Relay received openslot data", msg.RoundID, "from client", msg.ClientID)
-
 	p.relayState.roundManager.AddClientCipher(msg.RoundID, msg.ClientID, msg.OpenClosedData)
 
 	if p.relayState.roundManager.HasAllCiphersForCurrentRound() {
@@ -225,8 +223,6 @@ func (p *PriFiLibRelayInstance) Received_CLI_REL_OPENCLOSED_DATA(msg net.CLI_REL
 		sched := p.relayState.slotScheduler.Relay_ComputeFinalSchedule(openClosedData, msg.RoundID+1, p.relayState.nClients)
 		p.relayState.roundManager.SetStoredRoundSchedule(sched)
 
-		log.Error("OpenClosed Slot Schedule decoded on round", msg.RoundID, sched)
-
 		//we finish the round
 		p.doneCollectingUpstreamData(msg.RoundID)
 
@@ -242,8 +238,9 @@ func (p *PriFiLibRelayInstance) Received_CLI_REL_OPENCLOSED_DATA(msg net.CLI_REL
 			}
 		}
 		if !hasOpenSlot {
-			log.Lvl3("All slots closed, sleeping for", OPENCLOSEDSLOTS_MIN_DELAY_BETWEEN_REQUESTS)
-			time.Sleep(OPENCLOSEDSLOTS_MIN_DELAY_BETWEEN_REQUESTS)
+			d := time.Duration(p.relayState.OpenClosedSlotsMinDelayBetweenRequests) * time.Millisecond
+			log.Lvl1("All slots closed, sleeping for", d)
+			time.Sleep(d)
 		}
 
 		// send the data down

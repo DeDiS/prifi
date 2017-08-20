@@ -28,7 +28,7 @@ func (p *PriFiLibRelayInstance) checkIfRoundHasEndedAfterTimeOut_Phase1(roundID 
 
 	currRound := p.relayState.roundManager.CurrentRound()
 	missingClientCiphers, missingTrusteesCiphers := p.relayState.roundManager.MissingCiphersForCurrentRound()
-	log.Error("waitAndCheckIfClientsSentData : We seem to be stuck in round", roundID, ", RoundManager says:", currRound, missingClientCiphers, missingTrusteesCiphers,". Phase 1 timeout.")
+	log.Error("waitAndCheckIfClientsSentData : We seem to be stuck in round", roundID, ", RoundManager says:", currRound, missingClientCiphers, missingTrusteesCiphers, ". Phase 1 timeout.")
 
 	//If we're using UDP, client might have missed the broadcast, re-sending
 	if p.relayState.UseUDP {

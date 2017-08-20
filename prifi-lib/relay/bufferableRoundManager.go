@@ -131,6 +131,7 @@ func (b *BufferableRoundManager) nextRoundToOpen() int32 {
 	}
 
 	if b.storedRoundsSchedule == nil || len(b.storedRoundsSchedule) == 0 {
+
 		return nextRoundCandidate // valid since no schedule
 	}
 
@@ -334,7 +335,8 @@ func (b *BufferableRoundManager) GetDataAlreadySent(roundID int32) *net.REL_CLI_
 	if data, found := b.dataAlreadySent[roundID]; found {
 		return data
 	}
-	log.Fatal("Requested data already sent for round", roundID, ", but round has been closed already (or was not found).")
+	o, r := b.currentRound()
+	log.Fatal("Requested data already sent for round", roundID, ", but round has been closed already (or was not found). Current round is", o, r)
 	return nil
 }
 

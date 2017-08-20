@@ -797,6 +797,34 @@ case $1 in
 
 		;;
 
+	simul-vary-sleep)
+
+		thisScript="$0"
+
+		NTRUSTEES=3
+		NRELAY=1
+		TEMPLATE_FILE="sda/simulation/prifi_simul_template.toml"
+		CONFIG_FILE="sda/simulation/prifi_simul.toml"
+		TIMEOUT="400"
+
+		"$thisScript" simul-cl
+
+		for repeat in {1..10}
+		do
+			for i in {0..1000..50}
+			do
+				echo "Simulating for Delay=$i..."
+
+				#fix the config
+				rm -f "$CONFIG_FILE"
+				sed "s/OpenClosedSlotsMinDelayBetweenRequests = x/OpenClosedSlotsMinDelayBetweenRequests = $i/g" "$TEMPLATE_FILE" > "$CONFIG_FILE"
+
+				timeout "$TIMEOUT" "$thisScript" simul | tee experiment_${i}_${repeat}.txt
+			done
+		done
+
+		;;
+
 	simul-mcast-rules|simul-mr)
 
 		#create a file ~/mcast2.sh with this content

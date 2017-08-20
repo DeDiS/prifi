@@ -7,6 +7,6 @@ MonitorAddress = "users.isi.deterlab.net"
 MonitorPort = 10002
 Servers = 9
 Simulation = "PriFi"
-Hosts = 9
+Hosts = 99
 Debug = 0
 RunWait = 10000000

@@ -33,27 +33,28 @@ type SOCKSConfig struct {
 
 //The configuration read in prifi.toml
 type PrifiTomlConfig struct {
-	ForceConsoleColor           bool
-	OverrideLogLevel            int
-	ClientDataOutputEnabled     bool
-	RelayDataOutputEnabled      bool
-	CellSizeUp                  int
-	CellSizeDown                int
-	RelayWindowSize             int
-	RelayUseOpenClosedSlots     bool
-	RelayUseDummyDataDown       bool
-	RelayReportingLimit         int
-	UseUDP                      bool
-	DoLatencyTests              bool
-	SocksServerPort             int
-	SocksClientPort             int
-	ProtocolVersion             string
-	DCNetType                   string
-	ReplayPCAP                  bool
-	PCAPFolder                  string
-	TrusteeNeverSlowDown        bool
-	SimulDelayBetweenClients    int
-	DisruptionProtectionEnabled bool
+	ForceConsoleColor                      bool
+	OverrideLogLevel                       int
+	ClientDataOutputEnabled                bool
+	RelayDataOutputEnabled                 bool
+	CellSizeUp                             int
+	CellSizeDown                           int
+	RelayWindowSize                        int
+	RelayUseOpenClosedSlots                bool
+	RelayUseDummyDataDown                  bool
+	RelayReportingLimit                    int
+	UseUDP                                 bool
+	DoLatencyTests                         bool
+	SocksServerPort                        int
+	SocksClientPort                        int
+	ProtocolVersion                        string
+	DCNetType                              string
+	ReplayPCAP                             bool
+	PCAPFolder                             string
+	TrusteeNeverSlowDown                   bool
+	SimulDelayBetweenClients               int
+	DisruptionProtectionEnabled            bool
+	OpenClosedSlotsMinDelayBetweenRequests int
 }
 
 //PriFiSDAWrapperConfig is all the information the SDA-Protocols needs. It contains the network map of identities, our role, and the socks parameters if we are the corresponding role
@@ -101,7 +102,7 @@ func (p *PriFiSDAProtocol) SetConfigFromPriFiService(config *PriFiSDAWrapperConf
 		relayOutputEnabled := config.Toml.RelayDataOutputEnabled
 		p.prifiLibInstance = prifi_lib.NewPriFiRelay(relayOutputEnabled,
 			config.RelaySideSocksConfig.DownstreamChannel, config.RelaySideSocksConfig.UpstreamChannel,
-			experimentResultChan, p.handleTimeout, ms)
+			experimentResultChan, config.Toml.OpenClosedSlotsMinDelayBetweenRequests, p.handleTimeout, ms)
 	case Trustee:
 		p.prifiLibInstance = prifi_lib.NewPriFiTrustee(config.Toml.TrusteeNeverSlowDown, ms)
 

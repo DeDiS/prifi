@@ -59,7 +59,7 @@ type PriFiLibRelayInstance struct {
 // Note: the returned state is not sufficient for the PrFi protocol
 // to start; this entity will expect a ALL_ALL_PARAMETERS message as
 // first received message to complete it's state.
-func NewRelay(dataOutputEnabled bool, dataForClients chan []byte, dataFromDCNet chan []byte, experimentResultChan chan interface{}, timeoutHandler func([]int, []int), msgSender *net.MessageSenderWrapper) *PriFiLibRelayInstance {
+func NewRelay(dataOutputEnabled bool, dataForClients chan []byte, dataFromDCNet chan []byte, experimentResultChan chan interface{}, openClosedSlotsMinDelayBetweenRequests int, timeoutHandler func([]int, []int), msgSender *net.MessageSenderWrapper) *PriFiLibRelayInstance {
 	relayState := new(RelayState)
 
 	//init the static stuff
@@ -70,6 +70,7 @@ func NewRelay(dataOutputEnabled bool, dataForClients chan []byte, dataFromDCNet 
 	relayState.ExperimentResultChannel = experimentResultChan
 	relayState.ExperimentResultData = make([]string, 0)
 	relayState.PriorityDataForClients = make(chan []byte, 10) // This is used for relay's control message (like latency-tests)
+	relayState.OpenClosedSlotsMinDelayBetweenRequests = openClosedSlotsMinDelayBetweenRequests
 	relayState.bitrateStatistics = prifilog.NewBitRateStatistics()
 	relayState.timeStatistics = make(map[string]*prifilog.TimeStatistics)
 	relayState.timeStatistics["round-duration"] = prifilog.NewTimeStatistics()
@@ -112,9 +113,6 @@ func NewRelay(dataOutputEnabled bool, dataForClients chan []byte, dataFromDCNet 
 	return &prifi
 }
 
-// The minimum time between two OpenClosed Slots Requests (if the first request has all closed slots, how long do you wait)
-const OPENCLOSEDSLOTS_MIN_DELAY_BETWEEN_REQUESTS = 1000 * time.Millisecond
-
 //The time slept between each round
 const PROCESSING_LOOP_SLEEP_TIME = 0 * time.Millisecond
 
@@ -140,42 +138,43 @@ type NodeRepresentation struct {
 
 // RelayState contains the mutable state of the relay.
 type RelayState struct {
-	CellCoder                         dcnet.CellCoder
-	clients                           []NodeRepresentation
-	roundManager                      *BufferableRoundManager
-	neffShuffle                       *scheduler.NeffShuffleRelay
-	currentState                      int16
-	DataForClients                    chan []byte // VPN / SOCKS should put data there !
-	PriorityDataForClients            chan []byte
-	DataFromDCNet                     chan []byte // VPN / SOCKS should read data from there !
-	DataOutputEnabled                 bool        // If FALSE, nothing will be written to DataFromDCNet
-	DownstreamCellSize                int
-	MessageHistory                    abstract.Cipher
-	Name                              string
-	nClients                          int
-	nClientsPkCollected               int
-	nTrustees                         int
-	nTrusteesPkCollected              int
-	privateKey                        abstract.Scalar
-	PublicKey                         abstract.Point
-	ExperimentRoundLimit              int
-	trustees                          []NodeRepresentation
-	UpstreamCellSize                  int
-	UseDummyDataDown                  bool
-	UseOpenClosedSlots                bool
-	UseUDP                            bool
-	numberOfNonAckedDownstreamPackets int
-	WindowSize                        int
-	ExperimentResultChannel           chan interface{}
-	ExperimentResultData              []string
-	timeoutHandler                    func([]int, []int)
-	bitrateStatistics                 *prifilog.BitrateStatistics
-	timeStatistics                    map[string]*prifilog.TimeStatistics
-	slotScheduler                     *scheduler.BitMaskSlotScheduler_Relay
-	dcNetType                         string
-	time0                             uint64
-	pcapLogger                        *utils.PCAPLog
-	DisruptionProtectionEnabled       bool
+	CellCoder                              dcnet.CellCoder
+	clients                                []NodeRepresentation
+	roundManager                           *BufferableRoundManager
+	neffShuffle                            *scheduler.NeffShuffleRelay
+	currentState                           int16
+	DataForClients                         chan []byte // VPN / SOCKS should put data there !
+	PriorityDataForClients                 chan []byte
+	DataFromDCNet                          chan []byte // VPN / SOCKS should read data from there !
+	DataOutputEnabled                      bool        // If FALSE, nothing will be written to DataFromDCNet
+	DownstreamCellSize                     int
+	MessageHistory                         abstract.Cipher
+	Name                                   string
+	nClients                               int
+	nClientsPkCollected                    int
+	nTrustees                              int
+	nTrusteesPkCollected                   int
+	privateKey                             abstract.Scalar
+	PublicKey                              abstract.Point
+	ExperimentRoundLimit                   int
+	trustees                               []NodeRepresentation
+	UpstreamCellSize                       int
+	UseDummyDataDown                       bool
+	UseOpenClosedSlots                     bool
+	UseUDP                                 bool
+	numberOfNonAckedDownstreamPackets      int
+	WindowSize                             int
+	ExperimentResultChannel                chan interface{}
+	ExperimentResultData                   []string
+	timeoutHandler                         func([]int, []int)
+	bitrateStatistics                      *prifilog.BitrateStatistics
+	timeStatistics                         map[string]*prifilog.TimeStatistics
+	slotScheduler                          *scheduler.BitMaskSlotScheduler_Relay
+	dcNetType                              string
+	time0                                  uint64
+	pcapLogger                             *utils.PCAPLog
+	DisruptionProtectionEnabled            bool
+	OpenClosedSlotsMinDelayBetweenRequests int
 
 	//disruption protection
 	clientBitMap  map[int]map[int]int
