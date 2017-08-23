@@ -85,7 +85,7 @@ func (lc *LocalhostChannel) Broadcast(msg MarshallableMessage) error {
 
 	if lc.lastMessage == nil {
 
-		log.Lvl3("Broadcast - setting msg # to 0")
+		log.Lvl4("Broadcast - setting msg # to 0")
 		lc.lastMessageID = 0
 		lc.lastMessage = make([]byte, 0)
 	}
@@ -98,7 +98,7 @@ func (lc *LocalhostChannel) Broadcast(msg MarshallableMessage) error {
 	//append message to the buffer bool
 	lc.lastMessage = data
 	lc.lastMessageID++
-	log.Lvl3("Broadcast - added message, new message has Id ", lc.lastMessageID, ".")
+	log.Lvl4("Broadcast - added message, new message has Id ", lc.lastMessageID, ".")
 
 	return nil
 }
@@ -118,11 +118,11 @@ func (lc *LocalhostChannel) ListenAndBlock(emptyMessage MarshallableMessage, las
 	}
 
 	if willIgnoreNextMessage {
-		log.Lvl3("ListenAndBlock : Lossy UDP (loss", FAKE_LOCAL_UDP_SIMULATED_LOSS_PERCENTAGE, "%), we will ignore message coming after", lastSeenMessage, "and wait for message after", (lastSeenMessage + 1))
+		log.Lvl4("ListenAndBlock : Lossy UDP (loss", FAKE_LOCAL_UDP_SIMULATED_LOSS_PERCENTAGE, "%), we will ignore message coming after", lastSeenMessage, "and wait for message after", (lastSeenMessage + 1))
 		lastSeenMessage++
 	}
 
-	log.Lvl3("ListenAndBlock - waiting on message ", (lastSeenMessage + 1), ".")
+	log.Lvl4("ListenAndBlock - waiting on message ", (lastSeenMessage + 1), ".")
 
 	for lc.lastMessageID == lastSeenMessage {
 		//unlock before wait !
@@ -133,7 +133,7 @@ func (lc *LocalhostChannel) ListenAndBlock(emptyMessage MarshallableMessage, las
 		lc.RLock()
 	}
 
-	log.Lvl3("ListenAndBlock - returning message n°" + strconv.Itoa(lastSeenMessage+1) + ".")
+	log.Lvl4("ListenAndBlock - returning message n°" + strconv.Itoa(lastSeenMessage+1) + ".")
 	//there's one
 	lastMsg := lc.lastMessage
 
@@ -173,7 +173,7 @@ func (c *RealUDPChannel) Broadcast(msg MarshallableMessage) error {
 	if err != nil {
 		log.Error("Broadcast: could not write message, error is", err.Error())
 	} else {
-		log.Lvl3("Broadcast: broadcasted one message of length", len(message))
+		log.Lvl4("Broadcast: broadcasted one message of length", len(message))
 	}
 
 	return nil
@@ -195,7 +195,7 @@ func (c *RealUDPChannel) ListenAndBlock(emptyMessage MarshallableMessage, lastSe
 			log.Error("ListenAndBlock(", identityListening, "): could not UDP Dial, error is", err.Error())
 		}
 
-		log.Lvl3("ListenAndBlock(", identityListening, "): listening on", mcastAddr)
+		log.Lvl4("ListenAndBlock(", identityListening, "): listening on", mcastAddr)
 		c.localConn.SetReadBuffer(MAX_UDP_SIZE)
 	}
 

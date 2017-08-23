@@ -16,7 +16,8 @@ const metaMessageLength int = 15     // 2bytes pattern + 4bytes ID + 8bytes time
 type Packet struct {
 	ID                        uint32
 	MsSinceBeginningOfCapture uint64 //milliseconds since beginning of capture
-	Data                      []byte
+	Header                    []byte
+	RealLength		  int
 }
 
 // Parses a .pcap file, and returns all valid packets. A packet is (ID, TimeSent [micros], Data)
@@ -46,8 +47,9 @@ func ParsePCAP(path string, maxPayloadLength int) ([]Packet, error) {
 		for remainingLen > maxPayloadLength {
 			p2 := Packet{
 				ID:   uint32(id),
-				Data: metaBytes(maxPayloadLength, uint32(id), t, true),
+				Header: metaBytes(maxPayloadLength, uint32(id), t, true),
 				MsSinceBeginningOfCapture: t,
+				RealLength: maxPayloadLength,
 			}
 			out = append(out, p2)
 			remainingLen -= maxPayloadLength
@@ -59,8 +61,9 @@ func ParsePCAP(path string, maxPayloadLength int) ([]Packet, error) {
 		}
 		p := Packet{
 			ID:   uint32(id),
-			Data: metaBytes(remainingLen, uint32(id), t, false),
+			Header: metaBytes(remainingLen, uint32(id), t, false),
 			MsSinceBeginningOfCapture: t,
+			RealLength: remainingLen,
 		}
 		out = append(out, p)
 	}
@@ -79,10 +82,12 @@ func getPayloadOrRandom(pkt gopcap.Packet, packetID uint32, msSinceBeginningOfCa
 }
 
 func metaBytes(length int, packetID uint32, timeSentInPcap uint64, isNonFinalPacket bool) []byte {
-	if length < metaMessageLength {
+	// ignore length, have short messages
+	if false && length < metaMessageLength {
 		return recognizableBytes(length, packetID)
 	}
-	out := make([]byte, length)
+	// out := make([]byte, length)
+	out := make([]byte, 15)
 	binary.BigEndian.PutUint16(out[0:2], pattern)
 	binary.BigEndian.PutUint32(out[2:6], packetID)
 	binary.BigEndian.PutUint64(out[6:14], timeSentInPcap)

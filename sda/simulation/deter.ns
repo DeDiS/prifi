@@ -6,8 +6,8 @@
 set ns [new Simulator]
 source tb_compat.tcl
 
-set n_trustees 5
-set n_clients 10
+set n_trustees 3
+set n_clients 5
 
 set trustee_bandwidth 100Mb
 set client_bandwidth 1000Mb

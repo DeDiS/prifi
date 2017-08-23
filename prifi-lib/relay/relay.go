@@ -223,20 +223,35 @@ func (p *PriFiLibRelayInstance) Received_CLI_REL_OPENCLOSED_DATA(msg net.CLI_REL
 		sched := p.relayState.slotScheduler.Relay_ComputeFinalSchedule(openClosedData, msg.RoundID+1, p.relayState.nClients)
 		p.relayState.roundManager.SetStoredRoundSchedule(sched)
 
-		//we finish the round
+		log.Lvl1("Relay got schedule", sched)
+
+		// we finish the round
 		p.doneCollectingUpstreamData(msg.RoundID)
 
-		//one round has just passed !
+		// one round has just passed !
 		// sleep so it does not go too fast for debug
 		time.Sleep(PROCESSING_LOOP_SLEEP_TIME)
 
-		//if all slots are closed, do not immediately send the next downstream data (which will be a OCSlots schedule)
+
+		// length of the schedule
+		l := 0
+
+		// if all slots are closed, do not immediately send the next downstream data (which will be a OCSlots schedule)
 		hasOpenSlot := false
 		for _, v := range sched {
 			if v {
 				hasOpenSlot = true
+				l++
 			}
 		}
+
+		p.relayState.ScheduleLengthRepartitions[l]++
+		str := ""
+		for k, v := range p.relayState.ScheduleLengthRepartitions {
+			str += strconv.Itoa(k)+"->"+strconv.Itoa(v)+";"
+		}
+		log.Lvl1("Schedule", str)
+
 		if !hasOpenSlot {
 			d := time.Duration(p.relayState.OpenClosedSlotsMinDelayBetweenRequests) * time.Millisecond
 			log.Lvl1("All slots closed, sleeping for", d)
@@ -372,8 +387,32 @@ func (p *PriFiLibRelayInstance) finalizeUpstreamData() error {
 
 			log.Lvl2("Got a PCAP meta-message (id", ID, ",frag", frag, ") at", now, ", delay since original is", diff, "ms")
 			p.relayState.timeStatistics["pcap-delay"].AddTime(diff)
-
 			p.relayState.pcapLogger.ReceivedPcap(uint32(ID), frag, uint64(timestamp), p.relayState.time0, uint32(len(upstreamPlaintext)))
+
+			//also decode other messages
+			pos := 15
+			for pos + 15 <= len(upstreamPlaintext) {
+				pattern := int(binary.BigEndian.Uint16(upstreamPlaintext[pos:pos+2]))
+				if pattern != 21845 {
+					break
+				}
+				ID := int32(binary.BigEndian.Uint32(upstreamPlaintext[pos+2:pos+6]))
+				timestamp := int64(binary.BigEndian.Uint64(upstreamPlaintext[pos+6:pos+14]))
+				frag := false
+				if upstreamPlaintext[pos+14] == byte(1) {
+					frag = true
+				}
+
+				now := prifilog.MsTimeStampNow() - int64(p.relayState.time0)
+				diff := now - timestamp
+
+				log.Lvl2("Got a PCAP meta-message (id", ID, ",frag", frag, ") at", now, ", delay since original is", diff, "ms")
+				p.relayState.timeStatistics["pcap-delay"].AddTime(diff)
+				p.relayState.pcapLogger.ReceivedPcap(uint32(ID), frag, uint64(timestamp), p.relayState.time0, uint32(len(upstreamPlaintext)))
+
+				pos += 15
+			}
+
 		}
 	}
 
@@ -437,11 +476,9 @@ func (p *PriFiLibRelayInstance) sendDownstreamData() error {
 
 		// either select data from the data we have to send, if any
 		case downstreamCellContent = <-p.relayState.DataForClients:
-			log.Error("Relay : We have some real data for the clients. ")
 
 		default:
 			downstreamCellContent = make([]byte, 1)
-			log.Lvl3("Relay : Sending 1bit down. ")
 		}
 	}
 
@@ -461,9 +498,15 @@ func (p *PriFiLibRelayInstance) sendDownstreamData() error {
 	flagOpenClosedRequest := p.relayState.UseOpenClosedSlots &&
 		p.relayState.roundManager.IsNextDownstreamRoundForOpenClosedRequest(p.relayState.nClients)
 
+	log.Lvl2("Next schedule!", p.relayState.roundManager.NextDownstreamRoundForOpenClosedRequest())
+
 	//sending data part
 	timing.StartMeasure("sending-data")
-	log.Lvl3("Relay is gonna broadcast messages for round " + strconv.Itoa(int(nextDownstreamRoundID)) + ".")
+	if flagOpenClosedRequest {
+		log.Lvl2("Relay is gonna broadcast messages for round " + strconv.Itoa(int(nextDownstreamRoundID)) + " (OCRequest=true), len", len(downstreamCellContent))
+	} else {
+		log.Lvl2("Relay is gonna broadcast messages for round " + strconv.Itoa(int(nextDownstreamRoundID)) + ", len", len(downstreamCellContent))
+	}
 
 	toSend := &net.REL_CLI_DOWNSTREAM_DATA{
 		RoundID:               nextDownstreamRoundID,

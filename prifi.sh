@@ -811,7 +811,7 @@ case $1 in
 
 		for repeat in {1..10}
 		do
-			for i in {0..1000..50}
+			for i in {0..100..10}
 			do
 				echo "Simulating for Delay=$i..."
 
@@ -864,7 +864,7 @@ case $1 in
 
 		for repeat in {1..3}
 		do
-			for window in 4 6 8 10 12
+			for window in {1..10}
 			do
 				echo "Simulating for WINDOW=$window..."
 
@@ -889,7 +889,7 @@ case $1 in
 
 		for repeat in {1..10}
 		do
-			for upsize in 1000 1500 2000 2500 3000 3500 4000 4500 5000 5500 6000 6500 7000 7500 8000 8500 9000 9500 10000
+			for upsize in 1000 2000 3000 4000 5000 6000 7000 8000 9000 10000
 			do
 				echo "Simulating for upsize=$upsize  (repeat $repeat)..."
 

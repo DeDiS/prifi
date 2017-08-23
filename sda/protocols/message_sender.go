@@ -147,7 +147,7 @@ func (ms MessageSender) ClientSubscribeToBroadcast(clientID int, messageReceived
 		if listening {
 			emptyMessage := net.REL_CLI_DOWNSTREAM_DATA_UDP{}
 			//listen and decode
-			log.Lvl3("client", clientName, " calling listen and block...")
+			log.Lvl4("client", clientName, " calling listen and block...")
 			filledMessage, err := ms.udpChannel.ListenAndBlock(&emptyMessage, lastSeenMessage, clientName)
 			lastSeenMessage++
 
@@ -155,7 +155,7 @@ func (ms MessageSender) ClientSubscribeToBroadcast(clientID int, messageReceived
 				log.Error(clientName, " an error occurred : ", err)
 			}
 
-			log.Lvl3(clientName, " Received an UDP message n°"+strconv.Itoa(lastSeenMessage))
+			log.Lvl4(clientName, " Received an UDP message n°"+strconv.Itoa(lastSeenMessage))
 
 			if err != nil {
 				log.Error(clientName, " an error occurred : ", err)

@@ -71,6 +71,7 @@ func NewRelay(dataOutputEnabled bool, dataForClients chan []byte, dataFromDCNet 
 	relayState.ExperimentResultData = make([]string, 0)
 	relayState.PriorityDataForClients = make(chan []byte, 10) // This is used for relay's control message (like latency-tests)
 	relayState.OpenClosedSlotsMinDelayBetweenRequests = openClosedSlotsMinDelayBetweenRequests
+	relayState.ScheduleLengthRepartitions = make(map[int]int)
 	relayState.bitrateStatistics = prifilog.NewBitRateStatistics()
 	relayState.timeStatistics = make(map[string]*prifilog.TimeStatistics)
 	relayState.timeStatistics["round-duration"] = prifilog.NewTimeStatistics()
@@ -117,10 +118,10 @@ func NewRelay(dataOutputEnabled bool, dataForClients chan []byte, dataFromDCNet 
 const PROCESSING_LOOP_SLEEP_TIME = 0 * time.Millisecond
 
 //The timeout before retransmission (UDP)
-const TIMEOUT_PHASE_1 = 1 * time.Second
+const TIMEOUT_PHASE_1 = 10 * time.Second
 
 //The timeout before kicking a client/trustee
-const TIMEOUT_PHASE_2 = 2 * time.Second
+const TIMEOUT_PHASE_2 = 20 * time.Second
 
 // Number of ciphertexts buffered by trustees. When <= TRUSTEE_CACHE_LOWBOUND, resume sending
 const TRUSTEE_CACHE_LOWBOUND = 1
@@ -175,6 +176,7 @@ type RelayState struct {
 	pcapLogger                             *utils.PCAPLog
 	DisruptionProtectionEnabled            bool
 	OpenClosedSlotsMinDelayBetweenRequests int
+	ScheduleLengthRepartitions 	       map[int]int
 
 	//disruption protection
 	clientBitMap  map[int]map[int]int

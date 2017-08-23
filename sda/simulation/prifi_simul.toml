@@ -4,30 +4,30 @@ Depth = 1
 CloseWait = 10000000
 RunWait = 10000000
 NTrustees = 3
-CellSizeUp = 5000
+CellSizeUp = 7000
 CellSizeDown = 17500
 RelayWindowSize = 1
 DCNetType = "Simple"
-OverrideLogLevel = 1
+OverrideLogLevel = 3
 ForceConsoleColor = true
 RelayUseOpenClosedSlots = true
 RelayUseDummyDataDown = true
-RelayReportingLimit = 10000
+RelayReportingLimit = 100000
 RelayDataOutputEnabled = true
 ClientDataOutputEnabled = false
 UseUDP = true
-DoLatencyTests = true
+DoLatencyTests = false
 SocksServerPort = 8080
 SocksClientPort = 8090
 TrusteeIPRegexPattern = "10\\.1\\.0\\.([0-9]+)"
 ClientIPRegexPattern = "10\\.0\\.1\\.([0-9]+)"
 RelayIPRegexPattern = "10\\.([0-9]+)\\.([0-9]+)\\.254"
-Hosts = 99
-ReplayPCAP = false
+Hosts = 55
+ReplayPCAP = true
 PCAPFolder = "pcap/"
 SimulDelayBetweenClients = 0
 DisruptionProtectionEnabled = false
-OpenClosedSlotsMinDelayBetweenRequests = 1000
+OpenClosedSlotsMinDelayBetweenRequests = 0
 
 Rounds
 1

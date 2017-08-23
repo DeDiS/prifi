@@ -220,7 +220,7 @@ func (p *PriFiLibClientInstance) ProcessDownStreamData(msg net.REL_CLI_DOWNSTREA
 		//if the flag FlagOpenClosedRequest
 	} else if msg.FlagOpenClosedRequest == true {
 
-		log.Lvl2("Client " + strconv.Itoa(p.clientState.ID) + " : Relay wants to open/closed schedule slots ")
+		log.Lvl3("Client " + strconv.Itoa(p.clientState.ID) + " : Relay wants to open/closed schedule slots ")
 
 		//do the schedule
 		bmc := new(scheduler.BitMaskSlotScheduler_Client)
@@ -342,14 +342,16 @@ func (p *PriFiLibClientInstance) SendUpstreamData() error {
 				relativeNow := uint64(MsTimeStampNow()) - p.clientState.pcapReplay.time0
 
 				payload := make([]byte, 0)
+				payloadRealLength := 0 // payload actually only contains the headers
 				currentPacket := p.clientState.pcapReplay.Packets[p.clientState.pcapReplay.currentPacket]
 
 				//all packets >= currentPacket AND <= relativeNow should be sent
-				for currentPacket.MsSinceBeginningOfCapture <= relativeNow && len(payload)+len(currentPacket.Data) <= p.clientState.PayloadLength {
+				for currentPacket.MsSinceBeginningOfCapture <= relativeNow && payloadRealLength+currentPacket.RealLength <= p.clientState.PayloadLength {
 
-					log.Lvl2("Adding pcap packet", p.clientState.pcapReplay.currentPacket, "/", currentPacket.ID, "sent at", currentPacket.MsSinceBeginningOfCapture, "ms")
-					//add this packet
-					payload = append(payload, currentPacket.Data...)
+					log.Lvl2("Adding pcap packet", p.clientState.pcapReplay.currentPacket, "/", len(p.clientState.pcapReplay.Packets), "sent at", currentPacket.MsSinceBeginningOfCapture, "ms")
+					// add this packet
+					payload = append(payload, currentPacket.Header...)
+					payloadRealLength += currentPacket.RealLength
 					p.clientState.pcapReplay.currentPacket++
 					currentPacket = p.clientState.pcapReplay.Packets[p.clientState.pcapReplay.currentPacket]
 				}

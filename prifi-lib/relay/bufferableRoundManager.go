@@ -29,6 +29,9 @@ type BufferableRoundManager struct {
 	//we remember the last round we close for OpenNextRound()
 	lastRoundClosed int32
 
+	//initially equal to 1 (the first round where the relay has downstream data), then happens after schedule
+	nextOCSlotRound int32
+
 	//we also store the data already sent, in case we need to resend it
 	dataAlreadySent map[int32]*net.REL_CLI_DOWNSTREAM_DATA
 
@@ -60,6 +63,7 @@ func NewBufferableRoundManager(nClients, nTrustees, maxNumberOfConcurrentRounds 
 	b.nTrustees = nTrustees
 	b.maxNumberOfConcurrentRounds = maxNumberOfConcurrentRounds
 	b.lastRoundClosed = -1
+	b.nextOCSlotRound = 1
 
 	b.resetACKmaps()
 
@@ -305,7 +309,16 @@ func (b *BufferableRoundManager) resetACKmaps() {
 
 // IsNextDownstreamRoundForOpenClosedRequest return true if the next downstream round should have flagOpenCloseScheduleRequest == true
 func (b *BufferableRoundManager) IsNextDownstreamRoundForOpenClosedRequest(nClients int) bool {
-	return (b.NextRoundToOpen()%int32(nClients+1) == 0)
+	b.Lock()
+	defer b.Unlock()
+	return (b.nextRoundToOpen() == b.nextOCSlotRound)
+}
+
+// NextDownstreamRoundForOpenClosedRequest return the next downstream round should have flagOpenCloseScheduleRequest == true
+func (b *BufferableRoundManager) NextDownstreamRoundForOpenClosedRequest() int32 {
+	b.Lock()
+	defer b.Unlock()
+	return b.nextOCSlotRound
 }
 
 // SetStoredRoundSchedule simply stores the schedule
@@ -314,6 +327,16 @@ func (b *BufferableRoundManager) SetStoredRoundSchedule(s map[int32]bool) {
 	defer b.Unlock()
 
 	b.storedRoundsSchedule = s
+
+	//next OCSlotRound is right at the end of this schedule
+	maxKey := int32(-1)
+	for k, _ := range s {
+		if k > maxKey {
+			maxKey = k
+		}
+	}
+
+	b.nextOCSlotRound = maxKey + 1
 }
 
 // SetDataAlreadySent sets the "DataAlreadySent" field for the given round
