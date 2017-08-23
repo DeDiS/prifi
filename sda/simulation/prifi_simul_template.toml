@@ -8,7 +8,7 @@ CellSizeUp = x
 CellSizeDown = 17500
 RelayWindowSize = 3
 DCNetType = "Simple"
-OverrideLogLevel = 1
+OverrideLogLevel = 2
 ForceConsoleColor = true
 RelayUseOpenClosedSlots = true
 RelayUseDummyDataDown = true
@@ -28,6 +28,7 @@ PCAPFolder = "pcap/"
 SimulDelayBetweenClients = 0
 DisruptionProtectionEnabled = false
 OpenClosedSlotsMinDelayBetweenRequests = 0
+TrusteeNeverSlowDown = true
 
 Rounds
 1
