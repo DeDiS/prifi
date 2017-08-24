@@ -18,7 +18,7 @@ func (p *PriFiLibRelayInstance) checkIfRoundHasEndedAfterTimeOut_Phase1(roundID 
 
 	time.Sleep(TIMEOUT_PHASE_1)
 
-	if !p.relayState.roundManager.IsRoundOpenend(roundID) || p.relayState.roundManager.IsKnownClosedRound(roundID) {
+	if !p.relayState.roundManager.IsRoundOpenend(roundID) {
 		return //everything went well, it's great !
 	}
 

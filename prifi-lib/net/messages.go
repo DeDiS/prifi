@@ -51,7 +51,8 @@ type CLI_REL_TELL_PK_AND_EPH_PK struct {
 // and is sent to the relay.
 type CLI_REL_UPSTREAM_DATA struct {
 	ClientID int
-	RoundID  int32
+	RoundID  int32 // rounds increase 1 by 1, only represent ciphers
+	OwnershipID int32 // ownership may vary with open or closed slots
 	Data     []byte
 	HMAC     []byte // this field should be within the "Data" that is XORed, but this is simpler to code
 }

@@ -2,7 +2,6 @@ package scheduler
 
 import (
 	"math"
-	"strconv"
 )
 
 // SlotScheduler is a protocol between the relay and the clients that allows to decide which slots are gonna be
@@ -13,7 +12,7 @@ type SlotScheduler interface {
 	Client_ReceivedScheduleRequest()
 
 	//the client alters the schedule being computed, and ask to transmit
-	Client_ReserveRound(roundID int32)
+	Client_ReserveRound(slotID int)
 
 	//return the schedule to send as payload
 	Client_GetOpenScheduleContribution() []byte
@@ -22,15 +21,14 @@ type SlotScheduler interface {
 	Relay_CombineContributions(contributions ...[]byte) []byte
 
 	//returns all contributions in forms of a map of open slots
-	Relay_ComputeFinalSchedule() map[int32]bool
+	Relay_ComputeFinalSchedule() map[int]bool
 }
 
 // BitMaskScheduler_Client holds the info necessary for a client to compute his "contribution", or part of the bitmask
 type BitMaskSlotScheduler_Client struct {
-	NClients            int
-	beginningOfRound    int32
-	ClientWantsToSend   bool
-	MyRoundInNextRounds int
+	NClients          int
+	ClientWantsToSend bool
+	MySlotID          int
 }
 
 // BitMaskScheduler_Relay
@@ -38,21 +36,14 @@ type BitMaskSlotScheduler_Relay struct {
 }
 
 // Client_ReceivedScheduleRequest instantiates the fields of BitMaskScheduler_Client
-func (bmc *BitMaskSlotScheduler_Client) Client_ReceivedScheduleRequest(beginningOfRound int32, nClients int) {
+func (bmc *BitMaskSlotScheduler_Client) Client_ReceivedScheduleRequest(nClients int) {
 	bmc.NClients = nClients
-	bmc.beginningOfRound = beginningOfRound
 	bmc.ClientWantsToSend = false
-	bmc.MyRoundInNextRounds = -1
 }
 
 // Client_ReserveRound indicates to reserve a slot in the next round
-func (bmc *BitMaskSlotScheduler_Client) Client_ReserveRound(slotID int32) {
-	if slotID < bmc.beginningOfRound {
-		panic("Cannot reserve slot " + strconv.Itoa(int(slotID)) + " since next scheduled round starts at slot " + strconv.Itoa(int(bmc.beginningOfRound)))
-	}
-
-	slotIDInNextRound := slotID - bmc.beginningOfRound
-	bmc.MyRoundInNextRounds = int(slotIDInNextRound)
+func (bmc *BitMaskSlotScheduler_Client) Client_ReserveRound(slotID int) {
+	bmc.MySlotID = slotID
 	bmc.ClientWantsToSend = true
 }
 
@@ -67,8 +58,8 @@ func (bmc *BitMaskSlotScheduler_Client) Client_GetOpenScheduleContribution() []b
 	}
 
 	//set a bit to 1 at the correct position
-	whichByte := int(math.Floor(float64(bmc.MyRoundInNextRounds) / 8))
-	whichBit := uint(bmc.MyRoundInNextRounds % 8)
+	whichByte := int(math.Floor(float64(bmc.MySlotID) / 8))
+	whichBit := uint(bmc.MySlotID % 8)
 	payload[whichByte] = 1 << whichBit
 	return payload
 }
@@ -86,22 +77,21 @@ func (bmr *BitMaskSlotScheduler_Relay) Relay_CombineContributions(contributions 
 }
 
 // Relay_ComputeFinalSchedule computes the map[int32]bool of open slots in the next round given the stored contributions
-func (bmr *BitMaskSlotScheduler_Relay) Relay_ComputeFinalSchedule(allContributions []byte, baseRoundID int32, maxSlots int) map[int32]bool {
+func (bmr *BitMaskSlotScheduler_Relay) Relay_ComputeFinalSchedule(allContributions []byte, maxSlots int) map[int]bool {
 
-	//this schedules goes from [baseRoundID; baseRoundID+maxSlots[
-	endRoundID := baseRoundID + int32(maxSlots) - 1
-	res := make(map[int32]bool)
+	//this schedules goes from [0; maxSlots[
+	res := make(map[int]bool)
 
 	for byteIndex, b := range allContributions {
 		for bitPos := uint(0); bitPos < 8; bitPos++ {
-			roundID := baseRoundID + int32(byteIndex*8+int(bitPos))
+			ownerID := int(byteIndex*8+int(bitPos))
 			val := b & (1 << bitPos)
 			if val > 0 { //the bit was set
-				res[roundID] = true
+				res[ownerID] = true
 			} else {
-				res[roundID] = false
+				res[ownerID] = false
 			}
-			if roundID == endRoundID {
+			if ownerID == maxSlots - 1 {
 				return res
 			}
 		}

@@ -29,17 +29,20 @@ type BufferableRoundManager struct {
 	//we remember the last round we close for OpenNextRound()
 	lastRoundClosed int32
 
+	//remember who was the last owner, next is this+1
+	lastOwner                int
+
 	//initially equal to 1 (the first round where the relay has downstream data), then happens after schedule
-	nextOCSlotRound int32
+	nextOCSlotRound          int32
 
 	//we also store the data already sent, in case we need to resend it
-	dataAlreadySent map[int32]*net.REL_CLI_DOWNSTREAM_DATA
+	dataAlreadySent          map[int32]*net.REL_CLI_DOWNSTREAM_DATA
 
 	//when we open a round, we keep the start time to measure round duration
-	openRounds map[int32]time.Time
+	openRounds               map[int32]time.Time
 
-	//holds the schedule, i.e. which round will be skipped in the future
-	storedRoundsSchedule map[int32]bool
+	//holds the schedule, i.e. which ownerslot will be skipped in the future. Keys are in [0, nclients[
+	storedOwnerSchedule      map[int]bool
 
 	//stop/resume functions when we have too much/little ciphers
 	DoSendStopResumeMessages bool
@@ -62,14 +65,15 @@ func NewBufferableRoundManager(nClients, nTrustees, maxNumberOfConcurrentRounds 
 	b.nClients = nClients
 	b.nTrustees = nTrustees
 	b.maxNumberOfConcurrentRounds = maxNumberOfConcurrentRounds
-	b.lastRoundClosed = -1
-	b.nextOCSlotRound = 1
+	b.lastRoundClosed = -1 // next is round 0
+	b.lastOwner = -1 // next is client 0
+	b.nextOCSlotRound = 1 // first is 1, the first downstream data from relay
 
 	b.resetACKmaps()
 
 	b.dataAlreadySent = make(map[int32]*net.REL_CLI_DOWNSTREAM_DATA)
 	b.openRounds = make(map[int32]time.Time)
-	b.storedRoundsSchedule = nil
+	b.storedOwnerSchedule = nil
 
 	b.bufferedClientCiphers = make(map[int]map[int32][]byte)
 	b.bufferedTrusteeCiphers = make(map[int]map[int32][]byte)
@@ -106,7 +110,7 @@ func (b *BufferableRoundManager) currentRound() (bool, int32) {
 	return true, min
 }
 
-// NextRoundToOpen returns the next round to open. If none are open, uses the "lastRoundClosed"+1. Always skipped the planned closed rounds.
+// NextRoundToOpen returns the next round to open as RoundID. If none are open, uses the "lastRoundClosed"+1.
 func (b *BufferableRoundManager) NextRoundToOpen() int32 {
 	b.Lock()
 	defer b.Unlock()
@@ -114,7 +118,7 @@ func (b *BufferableRoundManager) NextRoundToOpen() int32 {
 	return b.nextRoundToOpen()
 }
 
-// NextRoundToOpen returns the next round to open. If none are open, uses the "lastRoundClosed"+1. Always skipped the planned closed rounds.
+// NextRoundToOpen returns the next round to open. If none are open, uses the "lastRoundClosed"+1. Does not skip the planned closed rounds.
 func (b *BufferableRoundManager) nextRoundToOpen() int32 {
 	anyRoundOpen, currentRound := b.currentRound()
 
@@ -128,25 +132,49 @@ func (b *BufferableRoundManager) nextRoundToOpen() int32 {
 	// shift while that round is already opened
 	_, found := b.openRounds[nextRoundCandidate]
 
-	// check if disabled in the schedule, iterate until find a non-closed slot (or go further than the schedule in time)
+	// check already opened
 	for found {
 		nextRoundCandidate++
 		_, found = b.openRounds[nextRoundCandidate]
 	}
 
-	if b.storedRoundsSchedule == nil || len(b.storedRoundsSchedule) == 0 {
+	return nextRoundCandidate
+}
 
-		return nextRoundCandidate // valid since no schedule
+// NextOwnerID returns the next slot owner.
+func (b *BufferableRoundManager) NextOwnerID() int {
+	b.Lock()
+	defer b.Unlock()
+
+	return b.nextOwnerID()
+}
+
+func (b *BufferableRoundManager) nextOwnerID() int {
+
+	nextOwnerIDCandidate := (b.lastOwner + 1) % b.nClients
+
+	if b.storedOwnerSchedule == nil || len(b.storedOwnerSchedule) == 0 {
+
+		b.lastOwner = nextOwnerIDCandidate
+		return nextOwnerIDCandidate // valid since no schedule
 	}
 
-	open, found := b.storedRoundsSchedule[nextRoundCandidate]
+	open, found := b.storedOwnerSchedule[nextOwnerIDCandidate]
 
 	// check if disabled in the schedule, iterate until find a non-closed slot (or go further than the schedule in time)
+	loopCount := 0
 	for found && !open {
-		nextRoundCandidate++
-		open, found = b.storedRoundsSchedule[nextRoundCandidate]
+		nextOwnerIDCandidate = (nextOwnerIDCandidate + 1) % b.nClients
+		open, found = b.storedOwnerSchedule[nextOwnerIDCandidate]
+
+		if loopCount == len(b.storedOwnerSchedule){
+			log.Fatal("No possible owner!")
+		}
+		loopCount++
 	}
-	return nextRoundCandidate
+
+	b.lastOwner = nextOwnerIDCandidate
+	return nextOwnerIDCandidate
 }
 
 // Open next round, fetch the buffered ciphers, reset the ACK map
@@ -322,21 +350,22 @@ func (b *BufferableRoundManager) NextDownstreamRoundForOpenClosedRequest() int32
 }
 
 // SetStoredRoundSchedule simply stores the schedule
-func (b *BufferableRoundManager) SetStoredRoundSchedule(s map[int32]bool) {
+func (b *BufferableRoundManager) SetStoredRoundSchedule(s map[int]bool) {
 	b.Lock()
 	defer b.Unlock()
 
-	b.storedRoundsSchedule = s
+	b.storedOwnerSchedule = s
 
 	//next OCSlotRound is right at the end of this schedule
-	maxKey := int32(-1)
+	maxKey := -1
 	for k, _ := range s {
 		if k > maxKey {
 			maxKey = k
 		}
 	}
 
-	b.nextOCSlotRound = maxKey + 1
+	_, currentRoundID := b.currentRound()
+	b.nextOCSlotRound = currentRoundID + int32(maxKey + 1)
 }
 
 // SetDataAlreadySent sets the "DataAlreadySent" field for the given round
@@ -462,18 +491,6 @@ func (b *BufferableRoundManager) MissingCiphersForCurrentRound() ([]int, []int) 
 	}
 
 	return clientMissing, trusteeMissing
-}
-
-// IsKnownClosedRound returns true IFF roundID is known to be a closed round in the current schedule
-func (b *BufferableRoundManager) IsKnownClosedRound(roundID int32) bool {
-
-	if b.storedRoundsSchedule == nil {
-		return false
-	}
-
-	_, found := b.storedRoundsSchedule[roundID]
-
-	return found
 }
 
 // IsRoundOpenend checks if we are in the given round (ie, used to check if we are stuck)

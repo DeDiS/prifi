@@ -71,41 +71,40 @@ func TestRoundSuccessionWithSchedule(test *testing.T) {
 		test.Error("NextRoundToOpen should be equal to 2", b.NextRoundToOpen())
 	}
 
-	//setting a round to closed should skip it
-	s := make(map[int32]bool, 2)
+	//setting a round to closed should *not* skip it, only change ownership stuff
+	s := make(map[int]bool, 2)
 	s[2] = false
 	s[4] = false
 	b.SetStoredRoundSchedule(s)
-	if b.storedRoundsSchedule == nil || len(b.storedRoundsSchedule) != len(s) || b.storedRoundsSchedule[0] != s[0] {
-		test.Error("b.storedRoundsSchedule should be s")
+	if b.storedOwnerSchedule == nil || len(b.storedOwnerSchedule) != len(s) || b.storedOwnerSchedule[0] != s[0] {
+		test.Error("b.storedOwnerSchedule should be s")
 	}
-	if b.NextRoundToOpen() != 3 {
-		test.Error("NextRoundToOpen should be equal to 3", b.NextRoundToOpen())
+	if b.NextRoundToOpen() != 2 {
+		test.Error("NextRoundToOpen should be equal to 2", b.NextRoundToOpen())
 	}
 
 	//should be able to open a round while skipping another round
+	b.OpenNextRound() // round 2
 	b.OpenNextRound() // round 3
-	b.OpenNextRound() // round 5
 	if b.CurrentRound() != 1 {
 		test.Error("Should be in round 1")
 	}
 	b.AddClientCipher(int32(1), 0, data)
 	b.AddTrusteeCipher(int32(1), 0, data)
-	b.CloseRound()
-	if b.CurrentRound() != 3 {
-		test.Error("Should be in round 3")
+	b.CloseRound() // 1
+	if b.CurrentRound() != 2 {
+		test.Error("Should be in round 2, but we're in round", b.CurrentRound())
 	}
-	b.AddClientCipher(int32(3), 0, data)
-	b.AddTrusteeCipher(int32(3), 0, data)
-	b.CloseRound()
-	b.OpenNextRound()
-	if b.CurrentRound() != 5 {
-		test.Error("Should be in round 5", b.CurrentRound())
+	b.AddClientCipher(int32(2), 0, data)
+	b.AddTrusteeCipher(int32(2), 0, data)
+	b.CloseRound() // 2
+	b.OpenNextRound() // 4
+	if b.CurrentRound() != 3 {
+		test.Error("Should be in round 3", b.CurrentRound())
 	}
 
-	//at this point, all rounds were closed, and we are out of the map - should return 6
-	if b.NextRoundToOpen() != 6 {
-		test.Error("NextRoundToOpen should be equal to 6", b.NextRoundToOpen())
+	if b.NextRoundToOpen() != 5 {
+		test.Error("NextRoundToOpen should be equal to 5", b.NextRoundToOpen())
 	}
 }
 

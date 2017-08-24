@@ -303,7 +303,7 @@ func (p* PriFiLibRelayInstance) processOpenClosedSlotRequests(roundID int32) err
 	openClosedData := p.relayState.CellCoder.DecodeCell()
 
 	//compute the map
-	sched := p.relayState.slotScheduler.Relay_ComputeFinalSchedule(openClosedData, roundID+1, p.relayState.nClients)
+	sched := p.relayState.slotScheduler.Relay_ComputeFinalSchedule(openClosedData, p.relayState.nClients)
 	p.relayState.roundManager.SetStoredRoundSchedule(sched)
 
 	// we finish the round

@@ -224,22 +224,12 @@ func (p *PriFiLibClientInstance) ProcessDownStreamData(msg net.REL_CLI_DOWNSTREA
 
 		//do the schedule
 		bmc := new(scheduler.BitMaskSlotScheduler_Client)
-		bmc.Client_ReceivedScheduleRequest(p.clientState.RoundNo+1, p.clientState.nClients)
-
-		//since this round nobody sends, move "MySlot" for everybody
-		p.clientState.MySlot = (p.clientState.MySlot + 1) % p.clientState.nClients
-
-		//find the slot that will be ours in the next round
-		i := p.clientState.RoundNo + 1
-		for i%int32(p.clientState.nClients) != int32(p.clientState.MySlot) {
-			i++
-		}
-		mySlotInNextRound := int32(i)
+		bmc.Client_ReceivedScheduleRequest(p.clientState.nClients)
 
 		//check if we want to transmit
 		if p.WantsToTransmit() {
-			log.Lvl3("Client "+strconv.Itoa(p.clientState.ID)+" : Gonna reserve round", mySlotInNextRound)
-			bmc.Client_ReserveRound(mySlotInNextRound)
+			bmc.Client_ReserveRound(p.clientState.MySlot)
+			log.Lvl3("Client "+strconv.Itoa(p.clientState.ID)+" : Gonna reserve slot", p.clientState.MySlot, "(we are in round",msg.RoundID,")")
 		}
 		contribution := bmc.Client_GetOpenScheduleContribution()
 
