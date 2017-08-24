@@ -52,7 +52,6 @@ type CLI_REL_TELL_PK_AND_EPH_PK struct {
 type CLI_REL_UPSTREAM_DATA struct {
 	ClientID int
 	RoundID  int32 // rounds increase 1 by 1, only represent ciphers
-	OwnershipID int32 // ownership may vary with open or closed slots
 	Data     []byte
 	HMAC     []byte // this field should be within the "Data" that is XORed, but this is simpler to code
 }
@@ -68,6 +67,7 @@ type CLI_REL_OPENCLOSED_DATA struct {
 // and is sent by the relay to the clients.
 type REL_CLI_DOWNSTREAM_DATA struct {
 	RoundID               int32
+	OwnershipID           int // ownership may vary with open or closed slots
 	Data                  []byte
 	FlagResync            bool
 	FlagOpenClosedRequest bool
@@ -199,7 +199,7 @@ func (m *REL_CLI_DOWNSTREAM_DATA_UDP) SetContent(data REL_CLI_DOWNSTREAM_DATA) {
 func (m *REL_CLI_DOWNSTREAM_DATA_UDP) ToBytes() ([]byte, error) {
 
 	//convert the message to bytes
-	buf := make([]byte, 4+len(m.REL_CLI_DOWNSTREAM_DATA.Data)+4+4)
+	buf := make([]byte, 4+4+len(m.REL_CLI_DOWNSTREAM_DATA.Data)+4+4)
 	resyncInt := 0
 	if m.REL_CLI_DOWNSTREAM_DATA.FlagResync {
 		resyncInt = 1
@@ -209,11 +209,12 @@ func (m *REL_CLI_DOWNSTREAM_DATA_UDP) ToBytes() ([]byte, error) {
 		openclosedInt = 1
 	}
 
-	// [0:4 roundID] [4:end-8 data] [end-8:end-4 resyncFlag] [end-4:end openClosedFlag]
+	// [0:4 roundID] [4:8 roundID] [8:end-8 data] [end-8:end-4 resyncFlag] [end-4:end openClosedFlag]
 	binary.BigEndian.PutUint32(buf[0:4], uint32(m.REL_CLI_DOWNSTREAM_DATA.RoundID))
+	binary.BigEndian.PutUint32(buf[4:8], uint32(m.REL_CLI_DOWNSTREAM_DATA.OwnershipID))
 	binary.BigEndian.PutUint32(buf[len(buf)-8:len(buf)-4], uint32(resyncInt)) //todo : to be coded on one byte
 	binary.BigEndian.PutUint32(buf[len(buf)-4:], uint32(openclosedInt))       //todo : to be coded on one byte
-	copy(buf[4:len(buf)-8], m.REL_CLI_DOWNSTREAM_DATA.Data)
+	copy(buf[8:len(buf)-8], m.REL_CLI_DOWNSTREAM_DATA.Data)
 
 	return buf, nil
 
@@ -230,9 +231,10 @@ func (m *REL_CLI_DOWNSTREAM_DATA_UDP) FromBytes(buffer []byte) (interface{}, err
 
 	// [0:4 roundID] [4:end-8 data] [end-8:end-4 resyncFlag] [end-4:end openClosedFlag]
 	roundID := int32(binary.BigEndian.Uint32(buffer[0:4]))
+	ownerShipID := int(binary.BigEndian.Uint32(buffer[4:8]))
 	flagResyncInt := int(binary.BigEndian.Uint32(buffer[len(buffer)-8 : len(buffer)-4]))
 	flagOpenClosedInt := int(binary.BigEndian.Uint32(buffer[len(buffer)-4:]))
-	data := buffer[4 : len(buffer)-8]
+	data := buffer[8 : len(buffer)-8]
 
 	flagResync := false
 	if flagResyncInt == 1 {
@@ -243,7 +245,7 @@ func (m *REL_CLI_DOWNSTREAM_DATA_UDP) FromBytes(buffer []byte) (interface{}, err
 		flagOpenClosed = true
 	}
 
-	innerMessage := REL_CLI_DOWNSTREAM_DATA{roundID, data, flagResync, flagOpenClosed}
+	innerMessage := REL_CLI_DOWNSTREAM_DATA{roundID, ownerShipID, data, flagResync, flagOpenClosed}
 	resultMessage := REL_CLI_DOWNSTREAM_DATA_UDP{innerMessage}
 
 	return resultMessage, nil

@@ -30,19 +30,19 @@ type BufferableRoundManager struct {
 	lastRoundClosed int32
 
 	//remember who was the last owner, next is this+1
-	lastOwner                int
+	lastOwner int
 
 	//initially equal to 1 (the first round where the relay has downstream data), then happens after schedule
-	nextOCSlotRound          int32
+	nextOCSlotRound int32
 
 	//we also store the data already sent, in case we need to resend it
-	dataAlreadySent          map[int32]*net.REL_CLI_DOWNSTREAM_DATA
+	dataAlreadySent map[int32]*net.REL_CLI_DOWNSTREAM_DATA
 
 	//when we open a round, we keep the start time to measure round duration
-	openRounds               map[int32]time.Time
+	openRounds map[int32]time.Time
 
 	//holds the schedule, i.e. which ownerslot will be skipped in the future. Keys are in [0, nclients[
-	storedOwnerSchedule      map[int]bool
+	storedOwnerSchedule map[int]bool
 
 	//stop/resume functions when we have too much/little ciphers
 	DoSendStopResumeMessages bool
@@ -66,8 +66,8 @@ func NewBufferableRoundManager(nClients, nTrustees, maxNumberOfConcurrentRounds 
 	b.nTrustees = nTrustees
 	b.maxNumberOfConcurrentRounds = maxNumberOfConcurrentRounds
 	b.lastRoundClosed = -1 // next is round 0
-	b.lastOwner = -1 // next is client 0
-	b.nextOCSlotRound = 1 // first is 1, the first downstream data from relay
+	b.lastOwner = -1       // next is client 0
+	b.nextOCSlotRound = 1  // first is 1, the first downstream data from relay
 
 	b.resetACKmaps()
 
@@ -141,15 +141,15 @@ func (b *BufferableRoundManager) nextRoundToOpen() int32 {
 	return nextRoundCandidate
 }
 
-// NextOwnerID returns the next slot owner.
-func (b *BufferableRoundManager) NextOwnerID() int {
+// UpdateAndGetNextOwnerID returns the next slot owner.
+func (b *BufferableRoundManager) UpdateAndGetNextOwnerID() int {
 	b.Lock()
 	defer b.Unlock()
 
-	return b.nextOwnerID()
+	return b.updateAndGetNextOwnerID()
 }
 
-func (b *BufferableRoundManager) nextOwnerID() int {
+func (b *BufferableRoundManager) updateAndGetNextOwnerID() int {
 
 	nextOwnerIDCandidate := (b.lastOwner + 1) % b.nClients
 
@@ -167,8 +167,8 @@ func (b *BufferableRoundManager) nextOwnerID() int {
 		nextOwnerIDCandidate = (nextOwnerIDCandidate + 1) % b.nClients
 		open, found = b.storedOwnerSchedule[nextOwnerIDCandidate]
 
-		if loopCount == len(b.storedOwnerSchedule){
-			log.Fatal("No possible owner!")
+		if loopCount == len(b.storedOwnerSchedule) {
+			return -1 // all slots closed
 		}
 		loopCount++
 	}
@@ -349,23 +349,26 @@ func (b *BufferableRoundManager) NextDownstreamRoundForOpenClosedRequest() int32
 	return b.nextOCSlotRound
 }
 
-// SetStoredRoundSchedule simply stores the schedule
+// SetStoredRoundSchedule stores the schedule, and resets the nextOwner to be 0
 func (b *BufferableRoundManager) SetStoredRoundSchedule(s map[int]bool) {
 	b.Lock()
 	defer b.Unlock()
 
 	b.storedOwnerSchedule = s
 
-	//next OCSlotRound is right at the end of this schedule
-	maxKey := -1
-	for k, _ := range s {
-		if k > maxKey {
-			maxKey = k
+	//next OCSlotRound is right at the end of this schedule. maxKey != nClients
+	numberOfOpenSlots := 0
+	for _, isSlotOpen := range s {
+		if isSlotOpen {
+			numberOfOpenSlots++
 		}
 	}
 
+	b.lastOwner = -1 //this resets the owner schedule
+
 	_, currentRoundID := b.currentRound()
-	b.nextOCSlotRound = currentRoundID + int32(maxKey + 1)
+	//there will be numberOfOpenSlots after this one for data, then, next one is OC slot
+	b.nextOCSlotRound = currentRoundID + int32(numberOfOpenSlots+1)
 }
 
 // SetDataAlreadySent sets the "DataAlreadySent" field for the given round

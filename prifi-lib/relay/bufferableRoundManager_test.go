@@ -14,10 +14,96 @@ import (
  * - Can buffer (and re-use) data from futur rounds
  * - Past and closed rounds have their data cleared
  * - When a round is closed, it prints the time spent in the round
- * - Ability to store a round schedule; a round can be closed in advance (eg. we're in round 1, and we get "round 3 is closed"). Then we never open round 3
+ * - Ability to store a owner schedule; a owner slots can be closed in advance, then this owner does not get a slot
  * - Must be able to tell how much data we have in one round
  * - Must sent the rate limit correctly if enabled
  */
+
+func TestOwnerSlots(test *testing.T) {
+
+	window := 1
+	nClients := 3
+	nTrustees := 1
+	b := NewBufferableRoundManager(nClients, nTrustees, window)
+
+	if b.lastOwner != -1 {
+		test.Error("LastOwner should start at -1")
+	}
+
+	if b.UpdateAndGetNextOwnerID() != 0 {
+		test.Error("UpdateAndGetNextOwnerID should be at 0")
+	}
+	if b.lastOwner != 0 {
+		test.Error("LastOwner should be at 0")
+	}
+	//asking twice should not change this of course
+	if b.lastOwner != 0 {
+		test.Error("LastOwner should be at 0")
+	}
+
+	if b.UpdateAndGetNextOwnerID() != 1 {
+		test.Error("UpdateAndGetNextOwnerID should be at 1")
+	}
+	if b.lastOwner != 1 {
+		test.Error("LastOwner should be at 1")
+	}
+
+	if b.UpdateAndGetNextOwnerID() != 2 {
+		test.Error("UpdateAndGetNextOwnerID should be at 2")
+	}
+	if b.lastOwner != 2 {
+		test.Error("LastOwner should be at 2")
+	}
+
+	if b.UpdateAndGetNextOwnerID() != 0 {
+		test.Error("UpdateAndGetNextOwnerID should be at 0")
+	}
+	if b.lastOwner != 0 {
+		test.Error("LastOwner should be at 0")
+	}
+
+	//relay sends an OC slot request
+	//client 0 and 2 reserve
+	schedule := make(map[int]bool)
+	schedule[0] = true
+	schedule[1] = false
+	schedule[2] = true
+	//non-specified are false/closed by definition
+
+	b.SetStoredRoundSchedule(schedule)
+	//this should reset the ownership map
+
+	if b.UpdateAndGetNextOwnerID() != 0 {
+		test.Error("UpdateAndGetNextOwnerID should be at 0")
+	}
+	if b.lastOwner != 0 {
+		test.Error("LastOwner should be at 0")
+	}
+
+	//client 1 does not want to communicate, should be client 2
+	if b.UpdateAndGetNextOwnerID() != 2 {
+		test.Error("UpdateAndGetNextOwnerID should be at 2")
+	}
+	if b.lastOwner != 2 {
+		test.Error("LastOwner should be at 2")
+	}
+
+	//client 0 again
+	if b.UpdateAndGetNextOwnerID() != 0 {
+		test.Error("UpdateAndGetNextOwnerID should be at 0")
+	}
+	if b.lastOwner != 0 {
+		test.Error("LastOwner should be at 0")
+	}
+
+	//client 1 does not want to communicate, should be client 2
+	if b.UpdateAndGetNextOwnerID() != 2 {
+		test.Error("UpdateAndGetNextOwnerID should be at 2")
+	}
+	if b.lastOwner != 2 {
+		test.Error("LastOwner should be at 2")
+	}
+}
 
 func TestRoundSuccessionWithSchedule(test *testing.T) {
 
@@ -97,7 +183,7 @@ func TestRoundSuccessionWithSchedule(test *testing.T) {
 	}
 	b.AddClientCipher(int32(2), 0, data)
 	b.AddTrusteeCipher(int32(2), 0, data)
-	b.CloseRound() // 2
+	b.CloseRound()    // 2
 	b.OpenNextRound() // 4
 	if b.CurrentRound() != 3 {
 		test.Error("Should be in round 3", b.CurrentRound())

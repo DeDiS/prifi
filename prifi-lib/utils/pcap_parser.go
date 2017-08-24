@@ -17,7 +17,7 @@ type Packet struct {
 	ID                        uint32
 	MsSinceBeginningOfCapture uint64 //milliseconds since beginning of capture
 	Header                    []byte
-	RealLength		  int
+	RealLength                int
 }
 
 // Parses a .pcap file, and returns all valid packets. A packet is (ID, TimeSent [micros], Data)
@@ -46,10 +46,10 @@ func ParsePCAP(path string, maxPayloadLength int) ([]Packet, error) {
 		//maybe this packet is bigger than the payloadlength. Then, generate many packets
 		for remainingLen > maxPayloadLength {
 			p2 := Packet{
-				ID:   uint32(id),
+				ID:     uint32(id),
 				Header: metaBytes(maxPayloadLength, uint32(id), t, true),
 				MsSinceBeginningOfCapture: t,
-				RealLength: maxPayloadLength,
+				RealLength:                maxPayloadLength,
 			}
 			out = append(out, p2)
 			remainingLen -= maxPayloadLength
@@ -60,10 +60,10 @@ func ParsePCAP(path string, maxPayloadLength int) ([]Packet, error) {
 			remainingLen = metaMessageLength
 		}
 		p := Packet{
-			ID:   uint32(id),
+			ID:     uint32(id),
 			Header: metaBytes(remainingLen, uint32(id), t, false),
 			MsSinceBeginningOfCapture: t,
-			RealLength: remainingLen,
+			RealLength:                remainingLen,
 		}
 		out = append(out, p)
 	}

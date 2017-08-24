@@ -84,14 +84,14 @@ func (bmr *BitMaskSlotScheduler_Relay) Relay_ComputeFinalSchedule(allContributio
 
 	for byteIndex, b := range allContributions {
 		for bitPos := uint(0); bitPos < 8; bitPos++ {
-			ownerID := int(byteIndex*8+int(bitPos))
+			ownerID := int(byteIndex*8 + int(bitPos))
 			val := b & (1 << bitPos)
 			if val > 0 { //the bit was set
 				res[ownerID] = true
 			} else {
 				res[ownerID] = false
 			}
-			if ownerID == maxSlots - 1 {
+			if ownerID == maxSlots-1 {
 				return res
 			}
 		}

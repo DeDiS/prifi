@@ -137,6 +137,7 @@ func TestUDPMessage(t *testing.T) {
 	//random content
 	content := new(REL_CLI_DOWNSTREAM_DATA)
 	content.RoundID = 1
+	content.OwnershipID = 2
 	content.FlagResync = true
 	content.Data = random.Bits(100, false, random.Stream)
 	content.FlagOpenClosedRequest = true
@@ -164,6 +165,9 @@ func TestUDPMessage(t *testing.T) {
 
 	if parsedMsg.RoundID != content.RoundID {
 		t.Error("RoundID unparsed incorrectly")
+	}
+	if parsedMsg.OwnershipID != content.OwnershipID {
+		t.Error("OwnershipID unparsed incorrectly")
 	}
 	if parsedMsg.FlagResync != content.FlagResync {
 		t.Error("FlagResync unparsed incorrectly")

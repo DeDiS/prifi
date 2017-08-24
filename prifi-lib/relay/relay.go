@@ -260,16 +260,16 @@ func (p *PriFiLibRelayInstance) Received_CLI_REL_OPENCLOSED_DATA(msg net.CLI_REL
 }
 
 // hasAllCiphersForUpstream combines the DC-net shares, decide what to do with them, and send the next downstream message, starting the next round
-func (p* PriFiLibRelayInstance) hasAllCiphersForUpstream() {
+func (p *PriFiLibRelayInstance) hasAllCiphersForUpstream() {
 
 	roundID := p.relayState.roundManager.CurrentRound()
 	_, isOCRound := p.relayState.OpenClosedSlotsRequestsRoundID[roundID]
 
-	log.Lvl3("Relay has collected all ciphers for round", roundID , "(isOCRound",isOCRound,"), decoding...")
+	log.Lvl3("Relay has collected all ciphers for round", roundID, "(isOCRound", isOCRound, "), decoding...")
 
 	if isOCRound {
 		p.processOpenClosedSlotRequests(roundID)
-	}else {
+	} else {
 		p.finalizeUpstreamData()
 	}
 
@@ -284,9 +284,7 @@ func (p* PriFiLibRelayInstance) hasAllCiphersForUpstream() {
 	}
 }
 
-
-
-func (p* PriFiLibRelayInstance) processOpenClosedSlotRequests(roundID int32) error {
+func (p *PriFiLibRelayInstance) processOpenClosedSlotRequests(roundID int32) error {
 	//classical DC-net decoding
 	clientSlices, trusteesSlices, err := p.relayState.roundManager.CollectRoundData()
 	if err != nil {
@@ -323,9 +321,9 @@ func (p* PriFiLibRelayInstance) processOpenClosedSlotRequests(roundID int32) err
 	p.relayState.ScheduleLengthRepartitions[scheduleLength]++
 	str := ""
 	for k, v := range p.relayState.ScheduleLengthRepartitions {
-		str += strconv.Itoa(k)+"->"+strconv.Itoa(v)+";"
+		str += strconv.Itoa(k) + "->" + strconv.Itoa(v) + ";"
 	}
-	if roundID % 3 == 0 {
+	if roundID%3 == 0 {
 		log.Lvl1("Schedules len/count", str)
 	}
 
@@ -390,13 +388,13 @@ func (p *PriFiLibRelayInstance) finalizeUpstreamData() error {
 
 			//also decode other messages
 			pos := 15
-			for pos + 15 <= len(upstreamPlaintext) {
-				pattern := int(binary.BigEndian.Uint16(upstreamPlaintext[pos:pos+2]))
+			for pos+15 <= len(upstreamPlaintext) {
+				pattern := int(binary.BigEndian.Uint16(upstreamPlaintext[pos : pos+2]))
 				if pattern != 21845 {
 					break
 				}
-				ID := int32(binary.BigEndian.Uint32(upstreamPlaintext[pos+2:pos+6]))
-				timestamp := int64(binary.BigEndian.Uint64(upstreamPlaintext[pos+6:pos+14]))
+				ID := int32(binary.BigEndian.Uint32(upstreamPlaintext[pos+2 : pos+6]))
+				timestamp := int64(binary.BigEndian.Uint64(upstreamPlaintext[pos+6 : pos+14]))
 				frag := false
 				if upstreamPlaintext[pos+14] == byte(1) {
 					frag = true
@@ -500,16 +498,20 @@ func (p *PriFiLibRelayInstance) sendDownstreamData() error {
 		p.relayState.OpenClosedSlotsRequestsRoundID[nextDownstreamRoundID] = true
 	}
 
+	//compute next owner
+	nextOwner := p.relayState.roundManager.UpdateAndGetNextOwnerID()
+
 	//sending data part
 	timing.StartMeasure("sending-data")
 	if flagOpenClosedRequest {
-		log.Lvl2("Relay is gonna broadcast messages for round " + strconv.Itoa(int(nextDownstreamRoundID)) + " (OCRequest=true), len", len(downstreamCellContent))
+		log.Lvl2("Relay is gonna broadcast messages for round "+strconv.Itoa(int(nextDownstreamRoundID))+" (OCRequest=true), owner=", nextOwner, ", len", len(downstreamCellContent))
 	} else {
-		log.Lvl2("Relay is gonna broadcast messages for round " + strconv.Itoa(int(nextDownstreamRoundID)) + ", len", len(downstreamCellContent))
+		log.Lvl2("Relay is gonna broadcast messages for round "+strconv.Itoa(int(nextDownstreamRoundID))+", owner=", nextOwner, ", len", len(downstreamCellContent))
 	}
 
 	toSend := &net.REL_CLI_DOWNSTREAM_DATA{
 		RoundID:               nextDownstreamRoundID,
+		OwnershipID:           nextOwner,
 		Data:                  downstreamCellContent,
 		FlagResync:            flagResync,
 		FlagOpenClosedRequest: flagOpenClosedRequest}

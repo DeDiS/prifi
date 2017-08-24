@@ -176,8 +176,8 @@ type RelayState struct {
 	pcapLogger                             *utils.PCAPLog
 	DisruptionProtectionEnabled            bool
 	OpenClosedSlotsMinDelayBetweenRequests int
-	ScheduleLengthRepartitions 	       map[int]int
-	OpenClosedSlotsRequestsRoundID	       map[int32]bool // contains roundID -> true if that round should be a OC slot request
+	ScheduleLengthRepartitions             map[int]int
+	OpenClosedSlotsRequestsRoundID         map[int32]bool // contains roundID -> true if that round should be a OC slot request
 
 	//disruption protection
 	clientBitMap  map[int]map[int]int

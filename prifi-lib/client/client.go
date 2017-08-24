@@ -229,7 +229,7 @@ func (p *PriFiLibClientInstance) ProcessDownStreamData(msg net.REL_CLI_DOWNSTREA
 		//check if we want to transmit
 		if p.WantsToTransmit() {
 			bmc.Client_ReserveRound(p.clientState.MySlot)
-			log.Lvl3("Client "+strconv.Itoa(p.clientState.ID)+" : Gonna reserve slot", p.clientState.MySlot, "(we are in round",msg.RoundID,")")
+			log.Lvl3("Client "+strconv.Itoa(p.clientState.ID)+" : Gonna reserve slot", p.clientState.MySlot, "(we are in round", msg.RoundID, ")")
 		}
 		contribution := bmc.Client_GetOpenScheduleContribution()
 
@@ -245,7 +245,7 @@ func (p *PriFiLibClientInstance) ProcessDownStreamData(msg net.REL_CLI_DOWNSTREA
 
 	} else {
 		//send upstream data for next round
-		p.SendUpstreamData()
+		p.SendUpstreamData(msg.OwnershipID)
 	}
 
 	//test if we have latency test to send
@@ -280,9 +280,8 @@ func (p *PriFiLibClientInstance) ProcessDownStreamData(msg net.REL_CLI_DOWNSTREA
 // WantsToTransmit returns true if [we have a latency message to send] OR [we have data to send]
 func (p *PriFiLibClientInstance) WantsToTransmit() bool {
 
-
 	//we have some pcap to send
-	if p.clientState.pcapReplay.Enabled && len(p.clientState.pcapReplay.Packets) > 0 && p.clientState.pcapReplay.currentPacket < len(p.clientState.pcapReplay.Packets){
+	if p.clientState.pcapReplay.Enabled && len(p.clientState.pcapReplay.Packets) > 0 && p.clientState.pcapReplay.currentPacket < len(p.clientState.pcapReplay.Packets) {
 		relativeNow := uint64(MsTimeStampNow()) - p.clientState.pcapReplay.time0
 		currentPacket := p.clientState.pcapReplay.Packets[p.clientState.pcapReplay.currentPacket]
 
@@ -316,20 +315,13 @@ func (p *PriFiLibClientInstance) WantsToTransmit() bool {
 SendUpstreamData determines if it's our round, embeds data (maybe latency-test message) in the payload if we can,
 creates the DC-net cipher and sends it to the relay.
 */
-func (p *PriFiLibClientInstance) SendUpstreamData() error {
-	//TODO: maybe make this into a method func (p *PrifiProtocol) isMySlot() bool {}
-	//write the next upstream slice. First, determine if we can embed payload this round
-	currentRound := p.clientState.RoundNo % int32(p.clientState.nClients)
-	isMySlot := false
-	if currentRound == int32(p.clientState.MySlot) {
-		isMySlot = true
-	} else {
-	}
+func (p *PriFiLibClientInstance) SendUpstreamData(ownerSlotID int) error {
 
 	var upstreamCellContent []byte
 
-	//if we can...
-	if isMySlot {
+	//if we can send data
+	if ownerSlotID == p.clientState.MySlot {
+
 		//this data has already been polled out of the DataForDCNet chan, so send it first
 		//this is non-nil when OpenClosedSlot is true, and that it had to poll data out
 		if p.clientState.NextDataForDCNet != nil {
@@ -339,7 +331,6 @@ func (p *PriFiLibClientInstance) SendUpstreamData() error {
 
 			//if there are some pcap packets to replay
 			if p.clientState.pcapReplay.Enabled && p.clientState.pcapReplay.currentPacket < len(p.clientState.pcapReplay.Packets) {
-
 
 				//if it is time to send some packet
 				relativeNow := uint64(MsTimeStampNow()) - p.clientState.pcapReplay.time0
