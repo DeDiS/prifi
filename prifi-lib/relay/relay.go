@@ -120,6 +120,7 @@ func (p *PriFiLibRelayInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PARA
 	p.relayState.clientBitMap = make(map[int]map[int]int)
 	p.relayState.trusteeBitMap = make(map[int]map[int]int)
 	p.relayState.blamingData = make([]int, 6)
+	p.relayState.OpenClosedSlotsRequestsRoundID = make(map[int32]bool)
 
 	switch dcNetType {
 	case "Simple":
@@ -250,6 +251,8 @@ func (p *PriFiLibRelayInstance) Received_CLI_REL_OPENCLOSED_DATA(msg net.CLI_REL
 	//p.relayState.timeStatistics["dcnet-add"].AddTime(timeMs)
 
 	if p.relayState.roundManager.HasAllCiphersForCurrentRound() {
+		timeMs := timing.StopMeasure("waiting-on-someone").Nanoseconds() / 1e6
+		p.relayState.timeStatistics["waiting-on-clients"].AddTime(timeMs)
 		p.hasAllCiphersForUpstream()
 	}
 
@@ -259,12 +262,13 @@ func (p *PriFiLibRelayInstance) Received_CLI_REL_OPENCLOSED_DATA(msg net.CLI_REL
 // hasAllCiphersForUpstream combines the DC-net shares, decide what to do with them, and send the next downstream message, starting the next round
 func (p* PriFiLibRelayInstance) hasAllCiphersForUpstream() {
 
-	log.Lvl3("Relay has collected all ciphers for round", p.relayState.roundManager.CurrentRound(), ", decoding...")
+	roundID := p.relayState.roundManager.CurrentRound()
+	_, isOCRound := p.relayState.OpenClosedSlotsRequestsRoundID[roundID]
 
-	isOCRound := false
+	log.Lvl3("Relay has collected all ciphers for round", roundID , "(isOCRound",isOCRound,"), decoding...")
 
 	if isOCRound {
-		p.processOpenClosedSlotRequests(p.relayState.roundManager.CurrentRound())
+		p.processOpenClosedSlotRequests(roundID)
 	}else {
 		p.finalizeUpstreamData()
 	}
@@ -302,34 +306,28 @@ func (p* PriFiLibRelayInstance) processOpenClosedSlotRequests(roundID int32) err
 	sched := p.relayState.slotScheduler.Relay_ComputeFinalSchedule(openClosedData, roundID+1, p.relayState.nClients)
 	p.relayState.roundManager.SetStoredRoundSchedule(sched)
 
-	log.Lvl1("Relay got schedule", sched)
-
 	// we finish the round
 	p.doneCollectingUpstreamData(roundID)
 
-	// one round has just passed !
-	// sleep so it does not go too fast for debug
-	time.Sleep(PROCESSING_LOOP_SLEEP_TIME)
-
-
-	// length of the schedule
-	l := 0
+	scheduleLength := 0
 
 	// if all slots are closed, do not immediately send the next downstream data (which will be a OCSlots schedule)
 	hasOpenSlot := false
 	for _, v := range sched {
 		if v {
 			hasOpenSlot = true
-			l++
+			scheduleLength++
 		}
 	}
 
-	p.relayState.ScheduleLengthRepartitions[l]++
+	p.relayState.ScheduleLengthRepartitions[scheduleLength]++
 	str := ""
 	for k, v := range p.relayState.ScheduleLengthRepartitions {
 		str += strconv.Itoa(k)+"->"+strconv.Itoa(v)+";"
 	}
-	log.Lvl1("Schedule", str)
+	if roundID % 3 == 0 {
+		log.Lvl1("Schedules len/count", str)
+	}
 
 	if !hasOpenSlot {
 		d := time.Duration(p.relayState.OpenClosedSlotsMinDelayBetweenRequests) * time.Millisecond
@@ -407,7 +405,7 @@ func (p *PriFiLibRelayInstance) finalizeUpstreamData() error {
 				now := prifilog.MsTimeStampNow() - int64(p.relayState.time0)
 				diff := now - timestamp
 
-				log.Lvl2("Got a PCAP meta-message (id", ID, ",frag", frag, ") at", now, ", delay since original is", diff, "ms")
+				//log.Lvl2("Got a PCAP meta-message (id", ID, ",frag", frag, ") at", now, ", delay since original is", diff, "ms")
 				p.relayState.timeStatistics["pcap-delay"].AddTime(diff)
 				p.relayState.pcapLogger.ReceivedPcap(uint32(ID), frag, uint64(timestamp), p.relayState.time0, uint32(len(upstreamPlaintext)))
 
@@ -498,8 +496,9 @@ func (p *PriFiLibRelayInstance) sendDownstreamData() error {
 	// periodically set to True so client can advertise their bitmap
 	flagOpenClosedRequest := p.relayState.UseOpenClosedSlots &&
 		p.relayState.roundManager.IsNextDownstreamRoundForOpenClosedRequest(p.relayState.nClients)
-
-	log.Lvl2("Next schedule!", p.relayState.roundManager.NextDownstreamRoundForOpenClosedRequest())
+	if flagOpenClosedRequest {
+		p.relayState.OpenClosedSlotsRequestsRoundID[nextDownstreamRoundID] = true
+	}
 
 	//sending data part
 	timing.StartMeasure("sending-data")

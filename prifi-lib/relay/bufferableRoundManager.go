@@ -139,12 +139,12 @@ func (b *BufferableRoundManager) nextRoundToOpen() int32 {
 		return nextRoundCandidate // valid since no schedule
 	}
 
-	_, found = b.storedRoundsSchedule[nextRoundCandidate]
+	open, found := b.storedRoundsSchedule[nextRoundCandidate]
 
 	// check if disabled in the schedule, iterate until find a non-closed slot (or go further than the schedule in time)
-	for found {
+	for found && !open {
 		nextRoundCandidate++
-		_, found = b.storedRoundsSchedule[nextRoundCandidate]
+		open, found = b.storedRoundsSchedule[nextRoundCandidate]
 	}
 	return nextRoundCandidate
 }

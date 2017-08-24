@@ -280,15 +280,26 @@ func (p *PriFiLibClientInstance) ProcessDownStreamData(msg net.REL_CLI_DOWNSTREA
 		p.Received_REL_CLI_DOWNSTREAM_DATA(msg)
 	}
 
-	timeMs := timing.StopMeasure("round-processing").Nanoseconds() / 1e6
-	p.clientState.timeStatistics["round-processing"].AddTime(timeMs)
-	p.clientState.timeStatistics["round-processing"].ReportWithInfo("round-processing")
+	//timeMs := timing.StopMeasure("round-processing").Nanoseconds() / 1e6
+	//p.clientState.timeStatistics["round-processing"].AddTime(timeMs)
+	//p.clientState.timeStatistics["round-processing"].ReportWithInfo("round-processing")
 
 	return nil
 }
 
 // WantsToTransmit returns true if [we have a latency message to send] OR [we have data to send]
 func (p *PriFiLibClientInstance) WantsToTransmit() bool {
+
+
+	//we have some pcap to send
+	if p.clientState.pcapReplay.Enabled && len(p.clientState.pcapReplay.Packets) > 0 && p.clientState.pcapReplay.currentPacket < len(p.clientState.pcapReplay.Packets){
+		relativeNow := uint64(MsTimeStampNow()) - p.clientState.pcapReplay.time0
+		currentPacket := p.clientState.pcapReplay.Packets[p.clientState.pcapReplay.currentPacket]
+
+		if currentPacket.MsSinceBeginningOfCapture <= relativeNow {
+			return true
+		}
+	}
 
 	//if we have a latency test message
 	if len(p.clientState.LatencyTest.LatencyTestsToSend) > 0 {
@@ -322,6 +333,7 @@ func (p *PriFiLibClientInstance) SendUpstreamData() error {
 	isMySlot := false
 	if currentRound == int32(p.clientState.MySlot) {
 		isMySlot = true
+	} else {
 	}
 
 	var upstreamCellContent []byte
@@ -338,6 +350,7 @@ func (p *PriFiLibClientInstance) SendUpstreamData() error {
 			//if there are some pcap packets to replay
 			if p.clientState.pcapReplay.Enabled && p.clientState.pcapReplay.currentPacket < len(p.clientState.pcapReplay.Packets) {
 
+
 				//if it is time to send some packet
 				relativeNow := uint64(MsTimeStampNow()) - p.clientState.pcapReplay.time0
 
@@ -346,15 +359,18 @@ func (p *PriFiLibClientInstance) SendUpstreamData() error {
 				currentPacket := p.clientState.pcapReplay.Packets[p.clientState.pcapReplay.currentPacket]
 
 				//all packets >= currentPacket AND <= relativeNow should be sent
+				basePacketID := p.clientState.pcapReplay.currentPacket
+				lastPacketID := p.clientState.pcapReplay.currentPacket
 				for currentPacket.MsSinceBeginningOfCapture <= relativeNow && payloadRealLength+currentPacket.RealLength <= p.clientState.PayloadLength {
 
-					log.Lvl2("Adding pcap packet", p.clientState.pcapReplay.currentPacket, "/", len(p.clientState.pcapReplay.Packets), "sent at", currentPacket.MsSinceBeginningOfCapture, "ms")
 					// add this packet
 					payload = append(payload, currentPacket.Header...)
 					payloadRealLength += currentPacket.RealLength
 					p.clientState.pcapReplay.currentPacket++
 					currentPacket = p.clientState.pcapReplay.Packets[p.clientState.pcapReplay.currentPacket]
+					lastPacketID = p.clientState.pcapReplay.currentPacket
 				}
+				log.Lvl2("Adding pcap packets", basePacketID, "-", lastPacketID, "/", len(p.clientState.pcapReplay.Packets))
 
 				upstreamCellContent = payload
 			} else {
