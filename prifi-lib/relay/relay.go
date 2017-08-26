@@ -374,6 +374,10 @@ func (p *PriFiLibRelayInstance) finalizeUpstreamData() error {
 
 		clientID := -1 // todo loop with the schedule
 		valid := ValidateHmac256(upstreamPlaintext, hmac, clientID)
+
+		if !valid {
+			// start blame
+		}
 	}
 
 	// check if we have a latency test message, or a pcap meta message
