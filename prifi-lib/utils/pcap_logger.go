@@ -20,16 +20,16 @@ type PCAPReceivedPacket struct {
 // PCAPLog is a collection of PCAPReceivedPackets
 type PCAPLog struct {
 	receivedPackets []*PCAPReceivedPacket
-	nextReport       time.Time
-	period           time.Duration
+	nextReport      time.Time
+	period          time.Duration
 }
 
 // Returns an instantiated PCAPLog
 func NewPCAPLog() *PCAPLog {
 	p := &PCAPLog{
-		receivedPackets:make([]*PCAPReceivedPacket, 0),
-		period: time.Duration(5) * time.Second,
-		nextReport: time.Now(),
+		receivedPackets: make([]*PCAPReceivedPacket, 0),
+		period:          time.Duration(5) * time.Second,
+		nextReport:      time.Now(),
 	}
 	return p
 }
@@ -91,7 +91,7 @@ func (pl *PCAPLog) Print() {
 	//now compute variance
 	variance := float64(0)
 	for _, v := range pl.receivedPackets {
-		variance += (float64(v.Delay) - delayMean)*(float64(v.Delay) - delayMean)
+		variance += (float64(v.Delay) - delayMean) * (float64(v.Delay) - delayMean)
 	}
 
 	variance = variance / float64(totalPackets)
@@ -99,6 +99,5 @@ func (pl *PCAPLog) Print() {
 	//compute stddev
 	stddev := math.Sqrt(variance)
 
-
-	log.Lvl1("PCAPLog : ", totalFragments, "fragments,", totalUniquePackets, "final,", totalPackets, "fragments+final; mean", delayMean, "ms, var",variance," stddev",stddev,"max", delayMax, "ms")
+	log.Lvl1("PCAPLog : ", totalFragments, "fragments,", totalUniquePackets, "final,", totalPackets, "fragments+final; mean", delayMean, "ms, var", variance, " stddev", stddev, "max", delayMax, "ms")
 }
