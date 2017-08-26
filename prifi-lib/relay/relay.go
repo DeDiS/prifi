@@ -115,7 +115,7 @@ func (p *PriFiLibRelayInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PARA
 	p.relayState.roundManager = NewBufferableRoundManager(nClients, nTrustees, windowSize)
 	p.relayState.dcNetType = dcNetType
 	p.relayState.time0 = uint64(prifilog.MsTimeStampNow())
-	p.relayState.pcapLogger = new(utils.PCAPLog)
+	p.relayState.pcapLogger = utils.NewPCAPLog()
 	p.relayState.DisruptionProtectionEnabled = disruptionProtection
 	p.relayState.clientBitMap = make(map[int]map[int]int)
 	p.relayState.trusteeBitMap = make(map[int]map[int]int)
@@ -329,7 +329,6 @@ func (p *PriFiLibRelayInstance) processOpenClosedSlotRequests(roundID int32) err
 
 	if !hasOpenSlot {
 		d := time.Duration(p.relayState.OpenClosedSlotsMinDelayBetweenRequests) * time.Millisecond
-		log.Lvl1("All slots closed, sleeping for", d)
 		time.Sleep(d)
 	}
 	return nil
@@ -403,7 +402,7 @@ func (p *PriFiLibRelayInstance) finalizeUpstreamData() error {
 				now := prifilog.MsTimeStampNow() - int64(p.relayState.time0)
 				diff := now - timestamp
 
-				//log.Lvl2("Got a PCAP meta-message (id", ID, ",frag", frag, ") at", now, ", delay since original is", diff, "ms")
+				log.Lvl2("Got a PCAP meta-message (id", ID, ",frag", frag, ") at", now, ", delay since original is", diff, "ms")
 				p.relayState.timeStatistics["pcap-delay"].AddTime(diff)
 				p.relayState.pcapLogger.ReceivedPcap(uint32(ID), frag, uint64(timestamp), p.relayState.time0, uint32(len(upstreamPlaintext)))
 

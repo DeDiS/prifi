@@ -47,7 +47,7 @@ func ParsePCAP(path string, maxPayloadLength int) ([]Packet, error) {
 		for remainingLen > maxPayloadLength {
 			p2 := Packet{
 				ID:     uint32(id),
-				Header: metaBytes(maxPayloadLength, uint32(id), t, true),
+				Header: metaBytes(maxPayloadLength, uint32(id), t, false),
 				MsSinceBeginningOfCapture: t,
 				RealLength:                maxPayloadLength,
 			}
@@ -61,7 +61,7 @@ func ParsePCAP(path string, maxPayloadLength int) ([]Packet, error) {
 		}
 		p := Packet{
 			ID:     uint32(id),
-			Header: metaBytes(remainingLen, uint32(id), t, false),
+			Header: metaBytes(remainingLen, uint32(id), t, true),
 			MsSinceBeginningOfCapture: t,
 			RealLength:                remainingLen,
 		}
@@ -81,7 +81,7 @@ func getPayloadOrRandom(pkt gopcap.Packet, packetID uint32, msSinceBeginningOfCa
 	return pkt.Data.LinkData().InternetData().TransportData()
 }
 
-func metaBytes(length int, packetID uint32, timeSentInPcap uint64, isNonFinalPacket bool) []byte {
+func metaBytes(length int, packetID uint32, timeSentInPcap uint64, isFinalPacket bool) []byte {
 	// ignore length, have short messages
 	if false && length < metaMessageLength {
 		return recognizableBytes(length, packetID)
@@ -92,7 +92,7 @@ func metaBytes(length int, packetID uint32, timeSentInPcap uint64, isNonFinalPac
 	binary.BigEndian.PutUint32(out[2:6], packetID)
 	binary.BigEndian.PutUint64(out[6:14], timeSentInPcap)
 	out[14] = byte(0)
-	if isNonFinalPacket {
+	if isFinalPacket {
 		out[14] = byte(1)
 	}
 	return out

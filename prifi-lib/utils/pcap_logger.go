@@ -3,6 +3,8 @@ package utils
 import (
 	prifilog "github.com/lbarman/prifi/prifi-lib/log"
 	"gopkg.in/dedis/onet.v1/log"
+	"math"
+	"time"
 )
 
 // PCAPReceivedPacket represents a PCAP that was transmitted through Prifi and received at the relay
@@ -18,6 +20,18 @@ type PCAPReceivedPacket struct {
 // PCAPLog is a collection of PCAPReceivedPackets
 type PCAPLog struct {
 	receivedPackets []*PCAPReceivedPacket
+	nextReport       time.Time
+	period           time.Duration
+}
+
+// Returns an instantiated PCAPLog
+func NewPCAPLog() *PCAPLog {
+	p := &PCAPLog{
+		receivedPackets:make([]*PCAPReceivedPacket, 0),
+		period: time.Duration(5) * time.Second,
+		nextReport: time.Now(),
+	}
+	return p
 }
 
 // should be called with the received pcap packet
@@ -27,19 +41,24 @@ func (pl *PCAPLog) ReceivedPcap(ID uint32, frag bool, tsSent uint64, tsExperimen
 		pl.receivedPackets = make([]*PCAPReceivedPacket, 0)
 	}
 
-	now := uint64(prifilog.MsTimeStampNow()) - tsExperimentStart
+	receptionTime := uint64(prifilog.MsTimeStampNow()) - tsExperimentStart
 
 	p := &PCAPReceivedPacket{
 		ID:              ID,
-		ReceivedAt:      now,
+		ReceivedAt:      receptionTime,
 		SentAt:          tsSent,
-		Delay:           now - tsSent,
+		Delay:           receptionTime - tsSent,
 		DataLen:         dataLen,
 		IsFinalFragment: frag,
 	}
 
 	pl.receivedPackets = append(pl.receivedPackets, p)
-	pl.Print()
+
+	now := time.Now()
+	if now.After(pl.nextReport) {
+		pl.Print()
+		pl.nextReport = now.Add(pl.period)
+	}
 }
 
 // prints current statistics for the pcap logger
@@ -49,9 +68,9 @@ func (pl *PCAPLog) Print() {
 	totalUniquePackets := 0
 	totalFragments := 0
 
+	//compute min max and other stats
 	delaysSum := uint64(0)
 	delayMax := uint64(0)
-
 	for _, v := range pl.receivedPackets {
 		totalPackets++
 		if v.IsFinalFragment {
@@ -69,5 +88,17 @@ func (pl *PCAPLog) Print() {
 
 	delayMean := float64(delaysSum) / float64(totalPackets)
 
-	log.Lvl1("PCAPLog : ", totalFragments, "fragments,", totalUniquePackets, "final packets, ", totalPackets, " packets; mean", delayMean, "ms, max", delayMax, "ms")
+	//now compute variance
+	variance := float64(0)
+	for _, v := range pl.receivedPackets {
+		variance += (float64(v.Delay) - delayMean)*(float64(v.Delay) - delayMean)
+	}
+
+	variance = variance / float64(totalPackets)
+
+	//compute stddev
+	stddev := math.Sqrt(variance)
+
+
+	log.Lvl1("PCAPLog : ", totalFragments, "fragments,", totalUniquePackets, "final,", totalPackets, "fragments+final; mean", delayMean, "ms, var",variance," stddev",stddev,"max", delayMax, "ms")
 }
