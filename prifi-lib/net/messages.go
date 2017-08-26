@@ -53,7 +53,6 @@ type CLI_REL_UPSTREAM_DATA struct {
 	ClientID int
 	RoundID  int32 // rounds increase 1 by 1, only represent ciphers
 	Data     []byte
-	HMAC     []byte // this field should be within the "Data" that is XORed, but this is simpler to code
 }
 
 // CLI_REL_OPENCLOSED_DATA message contains whether slots are gonna be Open or Closed in the next round

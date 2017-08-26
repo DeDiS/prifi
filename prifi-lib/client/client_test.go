@@ -6,8 +6,10 @@ import (
 	"errors"
 	"github.com/lbarman/prifi/prifi-lib/config"
 	"github.com/lbarman/prifi/prifi-lib/crypto"
+	"github.com/lbarman/prifi/prifi-lib/dcnet"
 	prifilog "github.com/lbarman/prifi/prifi-lib/log"
 	"github.com/lbarman/prifi/prifi-lib/net"
+	"github.com/lbarman/prifi/prifi-lib/relay"
 	"github.com/lbarman/prifi/prifi-lib/scheduler"
 	"gopkg.in/dedis/crypto.v0/abstract"
 	"gopkg.in/dedis/onet.v1/log"
@@ -571,6 +573,238 @@ func TestClient2(t *testing.T) {
 	err = client.ReceivedMessage(msg8)
 	if err != nil {
 		t.Error("Client should be able to receive this data")
+	}
+
+	t.SkipNow() //we started a goroutine, let's kill everything, we're good
+}
+
+func TestDisruptionClient(t *testing.T) {
+
+	msgSender := new(TestMessageSender)
+	msw := newTestMessageSenderWrapper(msgSender)
+	sentToRelay = make([]interface{}, 0)
+	in := make(chan []byte, 6)
+	out := make(chan []byte, 3)
+
+	client := NewClient(true, true, in, out, false, "./", msw)
+	cs := client.clientState
+
+	//we start by receiving a ALL_ALL_PARAMETERS from relay
+	msg := new(net.ALL_ALL_PARAMETERS_NEW)
+	msg.ForceParams = true
+	clientID := 3
+	nTrustees := 2
+	upCellSize := 1500
+	dcNetType := "Simple"
+	disruptionProtection := true
+	msg.Add("NClients", 3)
+	msg.Add("NTrustees", nTrustees)
+	msg.Add("UpstreamCellSize", upCellSize)
+	msg.Add("NextFreeClientID", clientID)
+	msg.Add("UseUDP", true)
+	msg.Add("DCNetType", dcNetType)
+	msg.Add("DisruptionProtectionEnabled", disruptionProtection)
+
+	if err := client.ReceivedMessage(*msg); err != nil {
+		t.Error("Client should be able to receive this message:", err)
+	}
+
+	if cs.DisruptionProtectionEnabled != true {
+		t.Error("Client should have the disruption protection enabled")
+	}
+
+	//Should receive a Received_REL_CLI_TELL_TRUSTEES_PK
+	trusteesPubKeys := make([]abstract.Point, nTrustees)
+	trusteesPrivKeys := make([]abstract.Scalar, nTrustees)
+	for i := 0; i < nTrustees; i++ {
+		trusteesPubKeys[i], trusteesPrivKeys[i] = crypto.NewKeyPair()
+	}
+	msg2 := net.REL_CLI_TELL_TRUSTEES_PK{Pks: trusteesPubKeys}
+	if err := client.ReceivedMessage(msg2); err != nil {
+		t.Error("Should be able to receive this message,", err.Error())
+	}
+
+	//Should send a CLI_REL_TELL_PK_AND_EPH_PK
+	if len(sentToRelay) == 0 {
+		t.Error("Client should have sent a CLI_REL_TELL_PK_AND_EPH_PK to the relay")
+	}
+	_ = sentToRelay[0].(*net.CLI_REL_TELL_PK_AND_EPH_PK)
+	sentToRelay = make([]interface{}, 0)
+
+	//neff shuffle
+	n := new(scheduler.NeffShuffle)
+	n.Init()
+	n.RelayView.Init(nTrustees)
+	trustees := make([]*scheduler.NeffShuffle, nTrustees)
+	for i := 0; i < nTrustees; i++ {
+		trustees[i] = new(scheduler.NeffShuffle)
+		trustees[i].Init()
+		trustees[i].TrusteeView.Init(i, trusteesPrivKeys[i], trusteesPubKeys[i])
+	}
+	n.RelayView.AddClient(cs.EphemeralPublicKey)
+	isDone := false
+	i := 0
+	for !isDone {
+		toSend, _, _ := n.RelayView.SendToNextTrustee()
+		parsed := toSend.(*net.REL_TRU_TELL_CLIENTS_PKS_AND_EPH_PKS_AND_BASE)
+		toSend2, _ := trustees[i].TrusteeView.ReceivedShuffleFromRelay(parsed.Base, parsed.EphPks, false, make([]byte, 1))
+		parsed2 := toSend2.(*net.TRU_REL_TELL_NEW_BASE_AND_EPH_PKS)
+		isDone, _ = n.RelayView.ReceivedShuffleFromTrustee(parsed2.NewBase, parsed2.NewEphPks, parsed2.Proof)
+		i++
+	}
+	toSend3, _ := n.RelayView.SendTranscript()
+	parsed3 := toSend3.(*net.REL_TRU_TELL_TRANSCRIPT)
+	for j := 0; j < nTrustees; j++ {
+		toSend4, _ := trustees[j].TrusteeView.ReceivedTranscriptFromRelay(parsed3.Bases, parsed3.GetKeys(), parsed3.GetProofs())
+		parsed4 := toSend4.(*net.TRU_REL_SHUFFLE_SIG)
+		n.RelayView.ReceivedSignatureFromTrustee(parsed4.TrusteeID, parsed4.Sig)
+	}
+	toSend5, _ := n.RelayView.VerifySigsAndSendToClients(trusteesPubKeys)
+	parsed5 := toSend5.(*net.REL_CLI_TELL_EPH_PKS_AND_TRUSTEES_SIG)
+
+	//should receive a Received_REL_CLI_TELL_EPH_PKS_AND_TRUSTEES_SIG
+	err4 := client.ReceivedMessage(*parsed5)
+	if err4 != nil {
+		t.Error("Should be able to receive this message,", err4)
+	}
+
+	if cs.MySlot != 0 {
+		t.Error("should have a slot", cs.MySlot)
+	}
+
+	//Should send a CLI_REL_UPSTREAM_DATA
+	if len(sentToRelay) == 0 {
+		t.Error("Client should have sent a CLI_REL_UPSTREAM_DATA to the relay")
+	}
+	msg6 := sentToRelay[0].(*net.CLI_REL_UPSTREAM_DATA)
+	sentToRelay = make([]interface{}, 0)
+	if msg6.ClientID != clientID {
+		t.Error("Client sent a wrong ID")
+	}
+	if msg6.RoundID != int32(0) {
+		t.Error("Client sent a wrong RoundID")
+	}
+	if len(msg6.Data) != upCellSize {
+		t.Error("Client sent a payload with a wrong size")
+	}
+	if cs.RoundNo != int32(1) {
+		t.Error("should be in round 1, we sent a CLI_REL_UPSTREAM_DATA (there is no REL_CLI_DOWNSTREAM_DATA on round 0)")
+	}
+	// set up the trustee's ciphers to decrypt
+
+	//set up the DC-nets
+	sharedPRNGs_t1 := make([]abstract.Cipher, 1)
+	sharedPRNGs_t2 := make([]abstract.Cipher, 1)
+	bytes, err := cs.sharedSecrets[0].MarshalBinary()
+	if err != nil {
+		t.Error("Could not marshal point !")
+	}
+	sharedPRNGs_t1[0] = config.CryptoSuite.Cipher(bytes)
+	bytes, err = cs.sharedSecrets[1].MarshalBinary()
+	if err != nil {
+		t.Error("Could not marshal point !")
+	}
+	sharedPRNGs_t2[0] = config.CryptoSuite.Cipher(bytes)
+	cellCoder1 := dcnet.SimpleCoderFactory()
+	cellCoder1.TrusteeSetup(config.CryptoSuite, sharedPRNGs_t1)
+	cellCoder2 := dcnet.SimpleCoderFactory()
+	cellCoder2.TrusteeSetup(config.CryptoSuite, sharedPRNGs_t2)
+
+	pad1 := cellCoder1.TrusteeEncode(upCellSize)
+	pad2 := cellCoder2.TrusteeEncode(upCellSize)
+	dcNetDecoded := make([]byte, upCellSize)
+	i = 0
+	for i < len(dcNetDecoded) {
+		dcNetDecoded[i] = pad1[i] ^ pad2[i] ^ msg6.Data[i]
+		i++
+	}
+
+	hmac := dcNetDecoded[0:32]
+	data := dcNetDecoded[32:]
+
+	success := relay.ValidateHmac256(data, hmac, clientID)
+	if !success {
+		t.Error("HMAC should be valid")
+	}
+
+	// now in a normal round (possibly the client will send 0's but it's a different path)
+	//Receive some data down
+	dataDown := []byte{1, 2, 3}
+	msg7 := net.REL_CLI_DOWNSTREAM_DATA{
+		RoundID:    1,
+		Data:       dataDown,
+		FlagResync: false,
+	}
+	err = client.ReceivedMessage(msg7)
+	if err != nil {
+		t.Error("Client should be able to receive this data")
+	}
+	msg8 := sentToRelay[0].(*net.CLI_REL_UPSTREAM_DATA)
+	sentToRelay = make([]interface{}, 0)
+
+	//dcnet decode
+	pad1 = cellCoder1.TrusteeEncode(upCellSize)
+	pad2 = cellCoder2.TrusteeEncode(upCellSize)
+	dcNetDecoded = make([]byte, upCellSize)
+	i = 0
+	for i < len(dcNetDecoded) {
+		dcNetDecoded[i] = pad1[i] ^ pad2[i] ^ msg8.Data[i]
+		i++
+	}
+
+	hmac = dcNetDecoded[0:32]
+	data = dcNetDecoded[32:]
+
+	success = relay.ValidateHmac256(data, hmac, clientID)
+	if !success {
+		t.Error("HMAC should be valid")
+	}
+
+	// now with disruption
+	//Receive some data down
+	msg9 := net.REL_CLI_DOWNSTREAM_DATA{
+		RoundID:    2,
+		Data:       dataDown,
+		FlagResync: false,
+	}
+	err = client.ReceivedMessage(msg9)
+	if err != nil {
+		t.Error("Client should be able to receive this data")
+	}
+	msg10 := sentToRelay[0].(*net.CLI_REL_UPSTREAM_DATA)
+	sentToRelay = make([]interface{}, 0)
+
+	//disruption !
+	if msg10.Data[upCellSize-1] == 0 {
+		msg10.Data[upCellSize-1] = 255
+	} else {
+		msg10.Data[upCellSize-1] = 0
+	}
+
+	//dcnet decode
+	pad1 = cellCoder1.TrusteeEncode(upCellSize)
+	pad2 = cellCoder2.TrusteeEncode(upCellSize)
+	dcNetDecoded = make([]byte, upCellSize)
+	i = 0
+	for i < len(dcNetDecoded) {
+		dcNetDecoded[i] = pad1[i] ^ pad2[i] ^ msg10.Data[i]
+		i++
+	}
+
+	hmac = dcNetDecoded[0:32]
+	data = dcNetDecoded[32:]
+
+	success = relay.ValidateHmac256(data, hmac, clientID)
+	if success {
+		t.Error("HMAC should not be valid")
+	}
+	//re-bitflip to original
+	data[len(data)-1] = 0
+
+	//should fail, wrong client ID
+	success = relay.ValidateHmac256(data, hmac, clientID+1)
+	if success {
+		t.Error("HMAC should not be valid")
 	}
 
 	t.SkipNow() //we started a goroutine, let's kill everything, we're good

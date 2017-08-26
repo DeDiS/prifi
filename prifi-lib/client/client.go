@@ -319,6 +319,15 @@ func (p *PriFiLibClientInstance) SendUpstreamData(ownerSlotID int) error {
 
 	var upstreamCellContent []byte
 
+	//how much data we can send
+	payloadLength := p.clientState.PayloadLength
+	if p.clientState.DisruptionProtectionEnabled {
+		payloadLength -= 32
+		if payloadLength <= 0 {
+			log.Fatal("Cannot have disruption protection with less than 32 bytes payload")
+		}
+	}
+
 	//if we can send data
 	if ownerSlotID == p.clientState.MySlot {
 
@@ -342,7 +351,7 @@ func (p *PriFiLibClientInstance) SendUpstreamData(ownerSlotID int) error {
 				//all packets >= currentPacket AND <= relativeNow should be sent
 				basePacketID := p.clientState.pcapReplay.currentPacket
 				lastPacketID := p.clientState.pcapReplay.currentPacket
-				for currentPacket.MsSinceBeginningOfCapture <= relativeNow && payloadRealLength+currentPacket.RealLength <= p.clientState.PayloadLength {
+				for currentPacket.MsSinceBeginningOfCapture <= relativeNow && payloadRealLength+currentPacket.RealLength <= payloadLength {
 
 					// add this packet
 					payload = append(payload, currentPacket.Header...)
@@ -364,7 +373,7 @@ func (p *PriFiLibClientInstance) SendUpstreamData(ownerSlotID int) error {
 
 				//or, if we have nothing to send, and we are doing Latency tests, embed a pre-crafted message that we will recognize later on
 				default:
-					emptyData := socks.NewSocksPacket(socks.DummyData, 0, 0, uint16(p.clientState.PayloadLength), make([]byte, 0))
+					emptyData := socks.NewSocksPacket(socks.DummyData, 0, 0, uint16(payloadLength), make([]byte, 0))
 					upstreamCellContent = emptyData.ToBytes()
 
 					if len(p.clientState.LatencyTest.LatencyTestsToSend) > 0 {
@@ -375,7 +384,7 @@ func (p *PriFiLibClientInstance) SendUpstreamData(ownerSlotID int) error {
 						}
 
 						bytes, outMsgs := prifilog.LatencyMessagesToBytes(p.clientState.LatencyTest.LatencyTestsToSend,
-							p.clientState.ID, p.clientState.RoundNo, p.clientState.PayloadLength, logFn)
+							p.clientState.ID, p.clientState.RoundNo, payloadLength, logFn)
 
 						p.clientState.LatencyTest.LatencyTestsToSend = outMsgs
 						upstreamCellContent = bytes
@@ -390,18 +399,17 @@ func (p *PriFiLibClientInstance) SendUpstreamData(ownerSlotID int) error {
 	}
 
 	//produce the next upstream cell
+	if p.clientState.DisruptionProtectionEnabled {
+		hmac := p.computeHmac256(upstreamCellContent)
+		upstreamCellContent = append(hmac, upstreamCellContent...) // TODO ... might be slow !
+	}
 	upstreamCell := p.clientState.DCNet_RoundManager.ClientEncodeForRound(p.clientState.RoundNo, upstreamCellContent, p.clientState.PayloadLength, p.clientState.MessageHistory)
 
 	//send the data to the relay
-	hmac := make([]byte, 0)
-	if p.clientState.DisruptionProtectionEnabled {
-		hmac = p.computeHmac256(upstreamCellContent)
-	}
 	toSend := &net.CLI_REL_UPSTREAM_DATA{
 		ClientID: p.clientState.ID,
 		RoundID:  p.clientState.RoundNo,
 		Data:     upstreamCell,
-		HMAC:     hmac,
 	}
 
 	p.messageSender.SendToRelayWithLog(toSend, "(round "+strconv.Itoa(int(p.clientState.RoundNo))+")")
@@ -510,19 +518,19 @@ func (p *PriFiLibClientInstance) Received_REL_CLI_TELL_EPH_PKS_AND_TRUSTEES_SIG(
 	log.Lvl3("Client " + strconv.Itoa(p.clientState.ID) + " is ready to communicate.")
 
 	//produce a blank cell (we could embed data, but let's keep the code simple, one wasted message is not much)
-	blank := make([]byte, 0)
-	upstreamCell := p.clientState.DCNet_RoundManager.ClientEncodeForRound(0, blank, p.clientState.PayloadLength, p.clientState.MessageHistory)
+	data := make([]byte, p.clientState.PayloadLength)
+	if p.clientState.DisruptionProtectionEnabled {
+		blank := make([]byte, p.clientState.PayloadLength-32)
+		hmac := p.computeHmac256(blank)
+		copy(data[0:32], hmac[0:32])
+	}
+	upstreamCell := p.clientState.DCNet_RoundManager.ClientEncodeForRound(0, data, p.clientState.PayloadLength, p.clientState.MessageHistory)
 
 	//send the data to the relay
-	hmac := make([]byte, 0)
-	if p.clientState.DisruptionProtectionEnabled {
-		hmac = p.computeHmac256(blank)
-	}
 	toSend := &net.CLI_REL_UPSTREAM_DATA{
 		ClientID: p.clientState.ID,
 		RoundID:  p.clientState.RoundNo,
 		Data:     upstreamCell,
-		HMAC:     hmac,
 	}
 	p.messageSender.SendToRelayWithLog(toSend, "(round "+strconv.Itoa(int(p.clientState.RoundNo))+")")
 

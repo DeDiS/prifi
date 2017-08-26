@@ -37,6 +37,9 @@ import (
 	"strconv"
 	"time"
 
+	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
 	"github.com/lbarman/prifi/prifi-lib/config"
 	"github.com/lbarman/prifi/prifi-lib/dcnet"
 	prifilog "github.com/lbarman/prifi/prifi-lib/log"
@@ -363,6 +366,11 @@ func (p *PriFiLibRelayInstance) finalizeUpstreamData() error {
 	p.relayState.timeStatistics["dcnet-decode"].AddTime(timeMs)
 
 	p.relayState.bitrateStatistics.AddUpstreamCell(int64(len(upstreamPlaintext)))
+
+	//disruption-protection
+	if p.relayState.DisruptionProtectionEnabled {
+
+	}
 
 	// check if we have a latency test message, or a pcap meta message
 	if len(upstreamPlaintext) >= 2 {
@@ -801,4 +809,13 @@ func (p *PriFiLibRelayInstance) Received_TRU_REL_SHUFFLE_SIG(msg net.TRU_REL_SHU
 	}
 
 	return nil
+}
+
+// ValidateHmac256 returns true iff the recomputed HMAC is equal to the given one
+func ValidateHmac256(message, inputHmac []byte, clientID int) bool {
+	key := []byte("client-secret" + strconv.Itoa(clientID)) // quick hack, this should be a random shared secret
+	h := hmac.New(sha256.New, key)
+	h.Write(message)
+	computedHmac := h.Sum(nil)
+	return bytes.Equal(inputHmac, computedHmac)
 }
