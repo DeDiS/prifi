@@ -369,7 +369,11 @@ func (p *PriFiLibRelayInstance) finalizeUpstreamData() error {
 
 	//disruption-protection
 	if p.relayState.DisruptionProtectionEnabled {
+		hmac := upstreamPlaintext[0:32]
+		upstreamPlaintext = upstreamPlaintext[32:]
 
+		clientID := -1 // todo loop with the schedule
+		valid := ValidateHmac256(upstreamPlaintext, hmac, clientID)
 	}
 
 	// check if we have a latency test message, or a pcap meta message
