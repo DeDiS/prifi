@@ -43,6 +43,10 @@ func (pl *PCAPLog) ReceivedPcap(ID uint32, frag bool, tsSent uint64, tsExperimen
 
 	receptionTime := uint64(prifilog.MsTimeStampNow()) - tsExperimentStart
 
+	if receptionTime < 0 {
+		receptionTime = 0
+	}
+
 	p := &PCAPReceivedPacket{
 		ID:              ID,
 		ReceivedAt:      receptionTime,

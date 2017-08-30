@@ -117,7 +117,6 @@ func (p *PriFiLibRelayInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PARA
 	p.relayState.nVkeysCollected = 0
 	p.relayState.roundManager = NewBufferableRoundManager(nClients, nTrustees, windowSize)
 	p.relayState.dcNetType = dcNetType
-	p.relayState.time0 = uint64(prifilog.MsTimeStampNow())
 	p.relayState.pcapLogger = utils.NewPCAPLog()
 	p.relayState.DisruptionProtectionEnabled = disruptionProtection
 	p.relayState.clientBitMap = make(map[int]map[int]int)
@@ -189,6 +188,10 @@ func (p *PriFiLibRelayInstance) BroadcastParameters() error {
 		p.messageSender.SendToTrusteeWithLog(j, msg, "")
 	}
 
+	//give time to the trustees to boot
+	log.Lvl1("Sleeping before starting clients, for", TIME_SLEEP_BEFORE_CLIENT_START)
+	time.Sleep(TIME_SLEEP_BEFORE_CLIENT_START)
+
 	// Send those parameters to all clients
 	for j := 0; j < p.relayState.nClients; j++ {
 
@@ -196,6 +199,10 @@ func (p *PriFiLibRelayInstance) BroadcastParameters() error {
 		msg.Add("NextFreeClientID", j)
 		p.messageSender.SendToClientWithLog(j, msg, "")
 	}
+
+	//give time to the trustees to boot
+	log.Lvl1("Sleeping (2) before starting clients, for", TIME_SLEEP_BEFORE_CLIENT_START)
+	time.Sleep(TIME_SLEEP_BEFORE_CLIENT_START)
 
 	return nil
 }
@@ -274,6 +281,10 @@ func (p *PriFiLibRelayInstance) hasAllCiphersForUpstream() {
 		p.processOpenClosedSlotRequests(roundID)
 	} else {
 		p.finalizeUpstreamData()
+	}
+
+	if roundID == 0 {
+		p.relayState.time0 = uint64(prifilog.MsTimeStampNow())
 	}
 
 	//one round has just passed !
@@ -521,7 +532,7 @@ func (p *PriFiLibRelayInstance) sendDownstreamData() error {
 	if flagOpenClosedRequest {
 		log.Lvl2("Relay is gonna broadcast messages for round "+strconv.Itoa(int(nextDownstreamRoundID))+" (OCRequest=true), owner=", nextOwner, ", len", len(downstreamCellContent))
 	} else {
-		log.Lvl2("Relay is gonna broadcast messages for round "+strconv.Itoa(int(nextDownstreamRoundID))+", owner=", nextOwner, ", len", len(downstreamCellContent))
+		log.Lvl2("Relay is gonna broadcast messages for round "+strconv.Itoa(int(nextDownstreamRoundID))+" (OCRequest=false), owner=", nextOwner, ", len", len(downstreamCellContent))
 	}
 
 	toSend := &net.REL_CLI_DOWNSTREAM_DATA{

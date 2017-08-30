@@ -772,15 +772,15 @@ case $1 in
 
 		thisScript="$0"
 
-		NTRUSTEES=3
+		NTRUSTEES=1
 		NRELAY=1
 		TEMPLATE_FILE="sda/simulation/prifi_simul_template.toml"
 		CONFIG_FILE="sda/simulation/prifi_simul.toml"
-		TIMEOUT="400"
+		TIMEOUT="600"
 
 		"$thisScript" simul-cl
 
-		for repeat in {1..5}
+		for repeat in {1..10}
 		do
 			for i in {5..95..5}
 			do

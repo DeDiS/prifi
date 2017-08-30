@@ -110,7 +110,7 @@ func (p *PriFiLibClientInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PAR
 		p.clientState.pcapReplay.PCAPFile = p.clientState.pcapReplay.PCAPFolder + "client" + strconv.Itoa(clientID) + ".pcap"
 		packets, err := utils.ParsePCAP(p.clientState.pcapReplay.PCAPFile, p.clientState.PayloadLength)
 		if err != nil {
-			log.Error("Requested PCAP Replay, but could not parse; Error is", err)
+			log.Lvl2("Requested PCAP Replay, but could not parse;", err)
 		}
 		p.clientState.pcapReplay.Packets = packets
 		log.Lvl1("Client", clientID, "loaded corresponding PCAP with", len(packets), "packets.")
@@ -145,6 +145,10 @@ If we're lucky (if this is our slot), we are allowed to embed some message (whic
 SOCKS/VPN data, or if we're running latency tests, we send a "ping" message to compute the latency. If we have nothing to say, we send 0's.
 */
 func (p *PriFiLibClientInstance) Received_REL_CLI_DOWNSTREAM_DATA(msg net.REL_CLI_DOWNSTREAM_DATA) error {
+
+	if msg.RoundID == 1{
+		p.clientState.pcapReplay.time0 = uint64(MsTimeStampNow())
+	}
 
 	//check if it is in-order
 	if msg.RoundID == p.clientState.RoundNo {

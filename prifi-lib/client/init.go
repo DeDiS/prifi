@@ -125,7 +125,7 @@ func NewClient(doLatencyTest bool, dataOutputEnabled bool, dataForDCNet chan []b
 		if strings.Contains(s.(string), ", but in state SHUTDOWN") { //it's an "acceptable error"
 			log.Lvl2(s)
 		} else {
-			log.Error(s)
+			log.Fatal(s)
 		}
 	}
 	sm.Init(states, logFn, errFn)
