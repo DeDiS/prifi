@@ -1,7 +1,12 @@
 package net
 
+import (
+	"gopkg.in/dedis/crypto.v0/abstract"
+)
+
 // ALL_ALL_PARAMETERS message contains all the parameters used by the protocol.
 type ALL_ALL_PARAMETERS_NEW struct {
+	TrusteesPks []abstract.Point //quick fix, for clients
 	ForceParams bool
 	ParamsInt   map[string]int
 	ParamsStr   map[string]string

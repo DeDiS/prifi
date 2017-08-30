@@ -57,7 +57,6 @@ func (p *PriFiLibClientInstance) Received_ALL_ALL_SHUTDOWN(msg net.ALL_ALL_SHUTD
 // Received_ALL_CLI_PARAMETERS handles ALL_CLI_PARAMETERS messages.
 // It uses the message's parameters to initialize the client.
 func (p *PriFiLibClientInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PARAMETERS_NEW) error {
-
 	clientID := msg.IntValueOrElse("NextFreeClientID", -1)
 	nTrustees := msg.IntValueOrElse("NTrustees", p.clientState.nTrustees)
 	nClients := msg.IntValueOrElse("NClients", p.clientState.nClients)
@@ -127,10 +126,10 @@ func (p *PriFiLibClientInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PAR
 		go p.messageSender.MessageSender.ClientSubscribeToBroadcast(p.clientState.ID, p.ReceivedMessage, p.clientState.StartStopReceiveBroadcast)
 	}
 
-	//after receiving this message, we are done with the state CLIENT_STATE_BEFORE_INIT, and are ready for initializing
-	p.stateMachine.ChangeState("INITIALIZING")
-
 	log.Lvl2("Client " + strconv.Itoa(p.clientState.ID) + " has been initialized by message. ")
+
+	// continue with handling the public keys
+	p.Received_REL_CLI_TELL_TRUSTEES_PK(msg.TrusteesPks)
 
 	return nil
 }
@@ -435,10 +434,10 @@ Of course, there should be check on those public keys (each client need to trust
 and that clients have agreed on the set of trustees.
 Once we receive this message, we need to reply with our Public Key (Used to derive DC-net secrets), and our Ephemeral Public Key (used for the Shuffle protocol)
 */
-func (p *PriFiLibClientInstance) Received_REL_CLI_TELL_TRUSTEES_PK(msg net.REL_CLI_TELL_TRUSTEES_PK) error {
+func (p *PriFiLibClientInstance) Received_REL_CLI_TELL_TRUSTEES_PK(trusteesPks []abstract.Point) error {
 
 	//sanity check
-	if len(msg.Pks) < 1 {
+	if len(trusteesPks) < 1 {
 		e := "Client " + strconv.Itoa(p.clientState.ID) + " : len(msg.Pks) must be >= 1"
 		log.Error(e)
 		return errors.New(e)
@@ -447,9 +446,9 @@ func (p *PriFiLibClientInstance) Received_REL_CLI_TELL_TRUSTEES_PK(msg net.REL_C
 	p.clientState.TrusteePublicKey = make([]abstract.Point, p.clientState.nTrustees)
 	p.clientState.sharedSecrets = make([]abstract.Point, p.clientState.nTrustees)
 
-	for i := 0; i < len(msg.Pks); i++ {
-		p.clientState.TrusteePublicKey[i] = msg.Pks[i]
-		p.clientState.sharedSecrets[i] = config.CryptoSuite.Point().Mul(msg.Pks[i], p.clientState.privateKey)
+	for i := 0; i < len(trusteesPks); i++ {
+		p.clientState.TrusteePublicKey[i] = trusteesPks[i]
+		p.clientState.sharedSecrets[i] = config.CryptoSuite.Point().Mul(trusteesPks[i], p.clientState.privateKey)
 	}
 
 	//set up the DC-nets

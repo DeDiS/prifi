@@ -188,22 +188,6 @@ func (p *PriFiLibRelayInstance) BroadcastParameters() error {
 		p.messageSender.SendToTrusteeWithLog(j, msg, "")
 	}
 
-	//give time to the trustees to boot
-	log.Lvl1("Sleeping before starting clients, for", TIME_SLEEP_BEFORE_CLIENT_START)
-	time.Sleep(TIME_SLEEP_BEFORE_CLIENT_START)
-
-	// Send those parameters to all clients
-	for j := 0; j < p.relayState.nClients; j++ {
-
-		// The ID is unique !
-		msg.Add("NextFreeClientID", j)
-		p.messageSender.SendToClientWithLog(j, msg, "")
-	}
-
-	//give time to the trustees to boot
-	log.Lvl1("Sleeping (2) before starting clients, for", TIME_SLEEP_BEFORE_CLIENT_START)
-	time.Sleep(TIME_SLEEP_BEFORE_CLIENT_START)
-
 	return nil
 }
 
@@ -645,10 +629,23 @@ func (p *PriFiLibRelayInstance) Received_TRU_REL_TELL_PK(msg net.TRU_REL_TELL_PK
 			trusteesPk[i] = p.relayState.trustees[i].PublicKey
 		}
 
-		// Send the pack to the clients
-		toSend := &net.REL_CLI_TELL_TRUSTEES_PK{Pks: trusteesPk}
-		for i := 0; i < p.relayState.nClients; i++ {
-			p.messageSender.SendToClientWithLog(i, toSend, "(client "+strconv.Itoa(i)+")")
+
+		//send that to the clients, along with the parameters
+		toSend := new(net.ALL_ALL_PARAMETERS_NEW)
+		toSend.Add("NClients", p.relayState.nClients)
+		toSend.Add("NTrustees", p.relayState.nTrustees)
+		toSend.Add("UseUDP", p.relayState.UseUDP)
+		toSend.Add("StartNow", true)
+		toSend.Add("UpstreamCellSize", p.relayState.UpstreamCellSize)
+		toSend.Add("DCNetType", p.relayState.dcNetType)
+		toSend.Add("DisruptionProtectionEnabled", p.relayState.DisruptionProtectionEnabled)
+		toSend.TrusteesPks = trusteesPk
+
+		// Send those parameters to all clients
+		for j := 0; j < p.relayState.nClients; j++ {
+			// The ID is unique !
+			toSend.Add("NextFreeClientID", j)
+			p.messageSender.SendToClientWithLog(j, toSend, "")
 		}
 
 		p.stateMachine.ChangeState("COLLECTING_CLIENT_PKS")

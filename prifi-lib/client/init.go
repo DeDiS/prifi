@@ -116,7 +116,7 @@ func NewClient(doLatencyTest bool, dataOutputEnabled bool, dataForDCNet chan []b
 	}
 
 	//init the state machine
-	states := []string{"BEFORE_INIT", "INITIALIZING", "EPH_KEYS_SENT", "READY", "BLAMING", "SHUTDOWN"}
+	states := []string{"BEFORE_INIT", "EPH_KEYS_SENT", "READY", "BLAMING", "SHUTDOWN"}
 	sm := new(utils.StateMachine)
 	logFn := func(s interface{}) {
 		log.Lvl2(s)
@@ -159,10 +159,6 @@ func (p *PriFiLibClientInstance) ReceivedMessage(msg interface{}) error {
 	case net.REL_CLI_DOWNSTREAM_DATA_UDP:
 		if p.stateMachine.AssertState("READY") {
 			err = p.Received_REL_CLI_UDP_DOWNSTREAM_DATA(typedMsg)
-		}
-	case net.REL_CLI_TELL_TRUSTEES_PK:
-		if p.stateMachine.AssertState("INITIALIZING") {
-			err = p.Received_REL_CLI_TELL_TRUSTEES_PK(typedMsg)
 		}
 	case net.REL_CLI_TELL_EPH_PKS_AND_TRUSTEES_SIG:
 		if p.stateMachine.AssertState("EPH_KEYS_SENT") {
