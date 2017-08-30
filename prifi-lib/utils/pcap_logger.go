@@ -103,5 +103,6 @@ func (pl *PCAPLog) Print() {
 	//compute stddev
 	stddev := math.Sqrt(variance)
 
-	log.Lvl1("PCAPLog : ", totalFragments, "fragments,", totalUniquePackets, "final,", totalPackets, "fragments+final; mean", delayMean, "ms, var", variance, " stddev", stddev, "max", delayMax, "ms")
+	log.Lvl1("PCAPLog : ", totalFragments, "fragments,", totalUniquePackets, "final,", totalPackets, "fragments+final; mean",
+		math.Ceil(delayMean*100)/100, "ms, stddev", math.Ceil(stddev*100)/100, "max", math.Ceil(float64(delayMax)*100)/100, "ms")
 }

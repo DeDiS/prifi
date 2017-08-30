@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"gopkg.in/dedis/crypto.v0/random"
 	"math/big"
+	//"gopkg.in/dedis/onet.v1/log"
 )
 
 var modulus = int64(123456789)
@@ -27,6 +28,7 @@ func (e *Equivocation) ClientEncryptPayload(payload []byte, history []byte, pads
 	hashOfPads := make([][]byte, len(pads))
 	for k := range hashOfPads {
 		hashOfPads[k] = Hash(pads[k])
+		//log.Lvl1("HashOfPad", k, hashOfPads[k])
 	}
 
 	// sum the hash
@@ -36,6 +38,7 @@ func (e *Equivocation) ClientEncryptPayload(payload []byte, history []byte, pads
 		v2.SetBytes(v)
 		sum = sum.Add(sum, v2)
 	}
+	//log.Lvl1("SumOfHash", sum)
 
 	// raise the history to the sum
 	h := new(big.Int)
@@ -44,13 +47,23 @@ func (e *Equivocation) ClientEncryptPayload(payload []byte, history []byte, pads
 	blindingFactor := new(big.Int)
 	blindingFactor = blindingFactor.Exp(h, sum, m)
 
+	//we're not the slot owner
+	if payload == nil {
+		// compute kappa
+		blindingFactor_bytes := blindingFactor.Bytes()
+		return nil, blindingFactor_bytes
+	}
+
 	// pick random key k
-	k_bytes := random.Bits(uint(len(payload)), false, random.Stream)
+	k_bytes := random.Bytes(len(payload), random.Stream)
+	//log.Lvl1("plaintext is", payload)
+	//log.Lvl1("blinding key is", k_bytes)
 
 	// encrypt payload
 	for i := range k_bytes {
 		payload[i] ^= k_bytes[i]
 	}
+	//log.Lvl1("encrypted is", payload)
 
 	// compute kappa
 	k := new(big.Int)
@@ -60,6 +73,8 @@ func (e *Equivocation) ClientEncryptPayload(payload []byte, history []byte, pads
 	kappa = k.Mul(k, blindingFactor)
 
 	kappa_bytes := kappa.Bytes()
+
+	//log.Lvl1("Len of blinding key/data", len(k_bytes), len(payload))
 
 	return payload, kappa_bytes
 }
@@ -75,6 +90,7 @@ func (e *Equivocation) TrusteeGetContribution(pads [][]byte) []byte {
 	hashOfPads := make([][]byte, len(pads))
 	for k := range hashOfPads {
 		hashOfPads[k] = Hash(pads[k])
+		//log.Lvl1("HashOfPad", k, hashOfPads[k])
 	}
 
 	// sum the hash
@@ -84,6 +100,7 @@ func (e *Equivocation) TrusteeGetContribution(pads [][]byte) []byte {
 		v2.SetBytes(v)
 		sum = sum.Add(sum, v2)
 	}
+	//log.Lvl1("SumOfHash", sum)
 
 	res := new(big.Int)
 	res.SetInt64(int64(-1))
@@ -129,6 +146,17 @@ func (e *Equivocation) RelayDecode(encryptedPayload []byte, history []byte, trus
 
 	//now use k to decrypt the payload
 	k_bytes := k.Bytes()
+
+	//log.Lvl1("blinding key is", k_bytes)
+	//log.Lvl1("Len of blinding key/data", len(k_bytes), len(encryptedPayload))
+
+	if len(k_bytes) != len(encryptedPayload) {
+		for i := range k_bytes {
+			k_bytes[i] ^= k_bytes[i]
+		}
+		return nil
+	}
+
 	for i := range k_bytes {
 		encryptedPayload[i] ^= k_bytes[i]
 	}
