@@ -54,6 +54,7 @@ type PrifiTomlConfig struct {
 	TrusteeNeverSlowDown                   bool
 	SimulDelayBetweenClients               int
 	DisruptionProtectionEnabled            bool
+	EquivocationProtectionEnabled          bool // not linked in the back
 	OpenClosedSlotsMinDelayBetweenRequests int
 }
 

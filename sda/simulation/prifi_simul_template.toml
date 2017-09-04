@@ -1,11 +1,11 @@
-RelayUseOpenClosedSlots = true
+RelayUseOpenClosedSlots = false
 DoLatencyTests = false
-ReplayPCAP = true
+ReplayPCAP = false
 DisruptionProtectionEnabled = false
 RelayUseDummyDataDown = false
 Hosts = x
-CellSizeUp = 5000
-RelayWindowSize = 3
+CellSizeUp = 500
+RelayWindowSize = 4
 OverrideLogLevel = 1
 Simulation = "PriFi"
 Servers = 9

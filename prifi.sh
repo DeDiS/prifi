@@ -776,13 +776,40 @@ case $1 in
 		NRELAY=1
 		TEMPLATE_FILE="sda/simulation/prifi_simul_template.toml"
 		CONFIG_FILE="sda/simulation/prifi_simul.toml"
-		TIMEOUT="600"
+		TIMEOUT="300"
 
 		"$thisScript" simul-cl
 
-		for repeat in {1..10}
+		for repeat in {4..6}
 		do
-			for i in {5..95..5}
+			for i in {10..90..10}
+			do
+				hosts=$(($NTRUSTEES + $NRELAY + $i))
+				echo "Simulating for HOSTS=$hosts..."
+
+				#fix the config
+				rm -f "$CONFIG_FILE"
+				sed "s/Hosts = x/Hosts = $hosts/g" "$TEMPLATE_FILE" > "$CONFIG_FILE"
+
+				timeout "$TIMEOUT" "$thisScript" simul | tee experiment_${i}_${repeat}.txt
+			done
+		done
+
+		;;
+
+	simul-vary-nclients2)
+
+		thisScript="$0"
+
+		NTRUSTEES=1
+		NRELAY=1
+		TEMPLATE_FILE="sda/simulation/prifi_simul_template.toml"
+		CONFIG_FILE="sda/simulation/prifi_simul.toml"
+		TIMEOUT="600"
+
+		for i in {10..90..10}
+		do
+			for repeat in {1..4}
 			do
 				hosts=$(($NTRUSTEES + $NRELAY + $i))
 				echo "Simulating for HOSTS=$hosts..."
@@ -936,6 +963,31 @@ case $1 in
 	clean|Clean|CLEAN)
 		echo -n "Cleaning local log files... 			"
 		rm *.log 1>/dev/null 2>&1
+		echo -e "$okMsg"
+		;;
+
+
+	ping-through-prifi)
+
+		#create a file ~/curl_format.cnf with this content
+		#
+		#    time_namelookup:  %{time_namelookup}\n
+		#       time_connect:  %{time_connect}\n
+		#    time_appconnect:  %{time_appconnect}\n
+		#   time_pretransfer:  %{time_pretransfer}\n
+		#      time_redirect:  %{time_redirect}\n
+		# time_starttransfer:  %{time_starttransfer}\n
+		#                    ----------\n
+		#         time_total:  %{time_total}\n
+
+		echo -n "Performing CURL through SOCKS:8081 to google.com, measuring latency..."
+
+		for repeat in {1..10}
+		do
+			#curl -w "@curl_format.cnf" --socks5 127.0.0.1:8081 --max-time 10 -o /dev/null -s "http://google.com/"
+			curl -w "@curl_format.cnf" --socks5 127.0.0.1:8081 --max-time 10 -o /dev/null -s "http://google.com/" > curl_ping_$repeat.txt
+		done
+
 		echo -e "$okMsg"
 		;;
 

@@ -96,7 +96,7 @@ func NewClient(doLatencyTest bool, dataOutputEnabled bool, dataForDCNet chan []b
 	//clientState.StartStopReceiveBroadcast = make(chan bool) //this should stay nil, !=nil -> we have a listener goroutine active
 	clientState.LatencyTest = &prifilog.LatencyTests{
 		DoLatencyTests:       doLatencyTest,
-		LatencyTestsInterval: 5 * time.Second,
+		LatencyTestsInterval: 2 * time.Second,
 		NextLatencyTest:      time.Now(),
 		LatencyTestsToSend:   make([]*prifilog.LatencyTestToSend, 0),
 	}

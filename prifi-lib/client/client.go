@@ -210,6 +210,19 @@ func (p *PriFiLibClientInstance) ProcessDownStreamData(msg net.REL_CLI_DOWNSTREA
 		}
 	}
 
+	//test if we have latency test to send
+	now := time.Now()
+	if p.clientState.LatencyTest.DoLatencyTests && p.clientState.ID == 0 && now.After(p.clientState.LatencyTest.NextLatencyTest) {
+		log.Lvl1("Client 0 wants to send a latency test")
+		newLatTest := &prifilog.LatencyTestToSend{
+			CreatedAt: now,
+		}
+		p.clientState.LatencyTest.LatencyTestsToSend = append(p.clientState.LatencyTest.LatencyTestsToSend, newLatTest)
+		p.clientState.LatencyTest.NextLatencyTest = now.Add(p.clientState.LatencyTest.LatencyTestsInterval)
+		p.clientState.LatencyTest.NextLatencyTest = p.clientState.LatencyTest.NextLatencyTest.Add(time.Duration(rand.Intn(1000)) * time.Millisecond)
+	}
+
+
 	//if the flag "Resync" is on, we cannot write data up, but need to resend the keys instead
 	if msg.FlagResync == true {
 
@@ -249,17 +262,6 @@ func (p *PriFiLibClientInstance) ProcessDownStreamData(msg net.REL_CLI_DOWNSTREA
 	} else {
 		//send upstream data for next round
 		p.SendUpstreamData(msg.OwnershipID)
-	}
-
-	//test if we have latency test to send
-	now := time.Now()
-	if p.clientState.LatencyTest.DoLatencyTests && now.After(p.clientState.LatencyTest.NextLatencyTest) {
-		newLatTest := &prifilog.LatencyTestToSend{
-			CreatedAt: now,
-		}
-		p.clientState.LatencyTest.LatencyTestsToSend = append(p.clientState.LatencyTest.LatencyTestsToSend, newLatTest)
-		p.clientState.LatencyTest.NextLatencyTest = now.Add(p.clientState.LatencyTest.LatencyTestsInterval)
-		p.clientState.LatencyTest.NextLatencyTest = p.clientState.LatencyTest.NextLatencyTest.Add(time.Duration(rand.Intn(1000)) * time.Millisecond)
 	}
 
 	//clean old buffered messages
@@ -344,6 +346,9 @@ func (p *PriFiLibClientInstance) SendUpstreamData(ownerSlotID int) error {
 			//if there are some pcap packets to replay
 			if p.clientState.pcapReplay.Enabled && p.clientState.pcapReplay.currentPacket < len(p.clientState.pcapReplay.Packets) {
 
+				if p.clientState.pcapReplay.currentPacket >= len(p.clientState.pcapReplay.Packets) - 2 {
+					log.Fatal("End of experiment, client sent all packets!")
+				}
 				//if it is time to send some packet
 				relativeNow := uint64(MsTimeStampNow()) - p.clientState.pcapReplay.time0
 
@@ -363,7 +368,11 @@ func (p *PriFiLibClientInstance) SendUpstreamData(ownerSlotID int) error {
 					currentPacket = p.clientState.pcapReplay.Packets[p.clientState.pcapReplay.currentPacket]
 					lastPacketID = p.clientState.pcapReplay.currentPacket
 				}
-				log.Lvl2("Adding pcap packets", basePacketID, "-", lastPacketID, "/", len(p.clientState.pcapReplay.Packets))
+				totalPackets := len(p.clientState.pcapReplay.Packets)
+				log.Lvl2("Adding pcap packets", basePacketID, "-", lastPacketID, "/", totalPackets)
+				if basePacketID % 100 == 0 || basePacketID + 10 > totalPackets {
+					log.Lvl2("PCAP: added pcap packets", basePacketID, "-", lastPacketID, "/", totalPackets)
+				}
 
 				upstreamCellContent = payload
 			} else {

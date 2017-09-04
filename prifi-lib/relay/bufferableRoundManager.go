@@ -368,7 +368,7 @@ func (b *BufferableRoundManager) SetStoredRoundSchedule(s map[int]bool) {
 
 	_, currentRoundID := b.currentRound()
 	//there will be numberOfOpenSlots after this one for data, then, next one is OC slot
-	b.nextOCSlotRound = currentRoundID + int32(numberOfOpenSlots)+1
+	b.nextOCSlotRound = currentRoundID + int32(numberOfOpenSlots) + int32(b.maxNumberOfConcurrentRounds) + 1
 }
 
 // SetDataAlreadySent sets the "DataAlreadySent" field for the given round
