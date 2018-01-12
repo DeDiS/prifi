@@ -70,7 +70,6 @@ func NewRelay(dataOutputEnabled bool, dataForClients chan []byte, dataFromDCNet 
 	relayState.ExperimentResultData = make([]string, 0)
 	relayState.PriorityDataForClients = make(chan []byte, 10) // This is used for relay's control message (like latency-tests) d
 	relayState.ScheduleLengthRepartitions = make(map[int]int)
-	relayState.bitrateStatistics = prifilog.NewBitRateStatistics()
 	relayState.timeStatistics = make(map[string]*prifilog.TimeStatistics)
 	relayState.timeStatistics["round-duration"] = prifilog.NewTimeStatistics()
 	relayState.timeStatistics["waiting-on-clients"] = prifilog.NewTimeStatistics()

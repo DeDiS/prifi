@@ -5,7 +5,7 @@ import (
 )
 
 func TestBWStatistics(t *testing.T) {
-	b := NewBitRateStatistics()
+	b := NewBitRateStatistics(1500)
 	b.AddDownstreamCell(int64(1000))
 	b.AddDownstreamUDPCell(int64(2000), 2)
 	b.AddDownstreamRetransmitCell(int64(1000))
@@ -50,8 +50,9 @@ func TestUtils(t *testing.T) {
 	}
 
 	//confidence interval
-	if RoundWithPrecision(Confidence95Percentiles([]int64{30, 31, 29, 29, 35, 39, 26, 29}), 2) != 7.53 {
-		t.Error("Confidence95Percentiles is wrong")
+	delta := ConfidenceInterval95([]int64{30, 31, 29, 29, 35, 39, 26, 29})
+	if RoundWithPrecision(delta, 2) != 2.66 {
+		t.Error("ConfidenceInterval95 is wrong", delta, "!= 2.66")
 	}
 
 	err := performGETRequest("https://prifi.net")

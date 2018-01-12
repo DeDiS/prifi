@@ -43,7 +43,7 @@ func (stats *TimeStatistics) TimeStatistics() (string, string, string) {
 	}
 
 	m := RoundWithPrecision(MeanInt64(stats.times), 2)
-	v := RoundWithPrecision(Confidence95Percentiles(stats.times), 2)
+	v := RoundWithPrecision(ConfidenceInterval95(stats.times), 2)
 
 	return fmt.Sprintf("%v", m), fmt.Sprintf("%v", v), fmt.Sprintf("%v", len(stats.times))
 }

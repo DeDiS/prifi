@@ -37,7 +37,7 @@ func (p *PriFiLibRelayInstance) checkIfRoundHasEndedAfterTimeOut_Phase1(roundID 
 	log.Lvl1("WARNING: missing clients", missingClientCiphers, "and trustees", missingTrusteeCiphers)
 
 	if p.relayState.numberOfConsecutiveFailedRounds >= p.relayState.MaxNumberOfConsecutiveFailedRounds {
-		log.Error("MAX_NUMBER_OF_CONSECUTIVE_FAILED_ROUNDS reached, killing protocol.")
+		log.Error("MAX_NUMBER_OF_CONSECUTIVE_FAILED_ROUNDS (",p.relayState.MaxNumberOfConsecutiveFailedRounds,") reached, killing protocol.")
 
 		log.Lvl3("Stopping experiment, if any.")
 		//output := p.relayState.ExperimentResultData

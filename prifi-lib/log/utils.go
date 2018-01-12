@@ -39,25 +39,27 @@ func MeanFloat64(data []float64) float64 {
 	return mean
 }
 
-//Confidence95Percentiles returns the confidence interval for 95 percentile
-func Confidence95Percentiles(data []int64) float64 {
-	if len(data) == 0 {
+//Confidence95Percentiles returns the delta for the 95% confidence interval. The actual interval is [mean(x)-delta; mean(x)+delta]
+func ConfidenceInterval95(data []int64) float64 {
+	n := len(data)
+	if n == 0 {
 		return 0
 	}
 	mean_val := MeanInt64(data)
 
 	var deviations []float64
-	for i := 0; i < len(data); i++ {
+	for i := 0; i < n; i++ {
 		diff := mean_val - float64(data[i])
 		deviations = append(deviations, diff*diff)
 	}
 
-	std := MeanFloat64(deviations)
-	stderr := math.Sqrt(std)
+	variance := MeanFloat64(deviations)
+	stddev := math.Sqrt(variance)
+	sigma := stddev / math.Sqrt(float64(n))
 	z_value_95 := 1.96
-	margin_error := stderr * z_value_95
+	confidenceDelta := z_value_95 * sigma
 
-	return margin_error
+	return confidenceDelta
 }
 
 //performGETRequest performs a GET request and ignores all errors

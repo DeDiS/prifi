@@ -12,14 +12,14 @@
 
 # variables that you might change often
 
-dbg_lvl=3                       # 1=less verbose, 3=more verbose. goes up to 5, but then prints the SDA's message (network framework)
+dbg_lvl=2                       # 1=less verbose, 3=more verbose. goes up to 5, but then prints the SDA's message (network framework)
 colors="true"                   # if  "false", the output of PriFi (and this script) will be in black-n-white
 
 socksServer1Port=8080           # the port for the SOCKS-Server-1 (part of the PriFi client)
 socksServer2Port=8090           # the port to attempt connect to (from the PriFi relay) for the SOCKS-Server-2
                                 # notes : see <https://github.com/lbarman/prifi/blob/master/README_architecture.md>
 
-socks_test_n_clients=3      # number of clients to start in the "all-localhost" script
+socks_test_n_clients=3          # number of clients to start in the "all-localhost" script
 
 # default file names :
 
@@ -181,8 +181,7 @@ run_integration_test_no_data() {
     pkill prifi 2>/dev/null
     kill -TERM $(pidof "go run run-server.go") 2>/dev/null
 
-    rm *.log
-    rm -f relay.log 2>/dev/null # just to be sure...
+    rm -f *.log
 
     # start all entities
 
@@ -234,6 +233,109 @@ run_integration_test_no_data() {
     kill -TERM $(pidof "go run run-server.go")  2>/dev/null
 
     if [ "$lines" -gt 1 ]; then
+        echo "Test succeeded"
+    else
+        echo "Test failed"
+        exit 1
+    fi
+}
+
+run_integration_test_ping() {
+    pkill prifi 2>/dev/null
+    kill -TERM $(pidof "go run run-server.go") 2>/dev/null
+
+    rm -f *.log
+
+    #test if a socks proxy is already running (needed for relay), or start ours
+    socks=$(netstat -tunpl 2>/dev/null | grep "$socksServer2Port" | wc -l)
+
+    if [ "$socks" -ne 1 ]; then
+        echo -n "Socks proxy not running, starting it... "
+        cd socks && ./run-socks-proxy.sh "$socksServer2Port" > ../socks.log 2>&1 &
+        SOCKSPID=$!
+        echo -e "$okMsg"
+    fi
+
+    echo -n "Starting relay...                      "
+    run_relay > relay.log 2>&1 &
+    echo -e "$okMsg"
+
+    sleep "$sleeptime_between_spawns"
+
+    echo -n "Starting trustee 0...                  "
+    run_trustee 0 > trustee0.log 2>&1 &
+    echo -e "$okMsg"
+
+    sleep "$sleeptime_between_spawns"
+
+    echo -n "Starting client 0... (SOCKS on :8081)  "
+    run_client 0 8081 > client0.log 2>&1 &
+    echo -e "$okMsg"
+
+    if [ "$socks_test_n_clients" -gt 1 ]; then
+        sleep "$sleeptime_between_spawns"
+
+        echo -n "Starting client 1... (SOCKS on :8082)  "
+        run_client 1 8082 > client1.log 2>&1 &
+        echo -e "$okMsg"
+    fi
+
+    if [ "$socks_test_n_clients" -gt 2 ]; then
+        sleep "$sleeptime_between_spawns"
+
+        echo -n "Starting client 2... (SOCKS on :8083)  "
+        run_client 2 8083 > client2.log 2>&1 &
+        echo -e "$okMsg"
+    fi
+
+    #let it boot
+    waitTime=20
+    echo "Waiting $waitTime seconds..."
+    sleep "$waitTime"
+
+    # first client
+    echo -en "Doing SOCKS HTTP request via :8081...   "
+    curl google.com --socks5 127.0.0.1:8081 --max-time 10 1>/dev/null 2>&1
+    res=$?
+    if [ "$res" -eq 0 ]; then
+        echo -e "$okMsg"
+    else
+        echo "Test failed"
+        exit 1
+    fi
+
+    if [ "$socks_test_n_clients" -gt 1 ]; then
+        # second client
+        echo -en "Doing SOCKS HTTP request via :8082...   "
+        curl google.com --socks5 127.0.0.1:8082 --max-time 10 1>/dev/null 2>&1
+        res=$?
+        if [ "$res" -eq 0 ]; then
+            echo -e "$okMsg"
+        else
+            echo "Test failed"
+            exit 1
+        fi
+    fi
+
+    if [ "$socks_test_n_clients" -gt 2 ]; then
+        # third client
+        echo -en "Doing SOCKS HTTP request via :8083...   "
+        curl google.com --socks5 127.0.0.1:8083 --max-time 10 1>/dev/null 2>&1
+        res=$?
+        if [ "$res" -eq 0 ]; then
+            echo -e "$okMsg"
+        else
+            echo "Test failed"
+            exit 1
+        fi
+    fi
+
+    # cleaning everything
+
+    pkill prifi 2>/dev/null
+    kill -TERM $(pidof "go run run-server.go")  2>/dev/null
+
+    if [ "$res" -eq 0 ]; then
         echo "Test succeeded"
     else
         echo "Test failed"
@@ -296,74 +398,19 @@ case $1 in
 
         echo "This test check that PriFi's clients, trustees and relay connect and start performing communication rounds, and that a Ping request can go through (back and forth)."
 
-        pkill prifi 2>/dev/null
-        kill -TERM $(pidof "go run run-server.go") 2>/dev/null
+        for f in "$configdir/"*-test.toml;
+        do
+            m=$(echo "$f" | grep "pcap" | wc -l) # do not use the test with replays pcap, it's incompatible with this
+            if [ "$m" -eq 0 ]; then
+                echo -e "Gonna test with ${highlightOn}$f${highlightOff}";
+                prifi_file=$(basename "$f")
+                run_integration_test_ping
+            fi
+        done
 
-        "$MAIN_SCRIPT" clean
-
-        rm -f relay.log 2>/dev/null # just to be sure...
-
-        #test if a socks proxy is already running (needed for relay), or start ours
-        socks=$(netstat -tunpl 2>/dev/null | grep "$socksServer2Port" | wc -l)
-
-        if [ "$socks" -ne 1 ]; then
-            echo -n "Socks proxy not running, starting it... "
-            cd socks && ./run-socks-proxy.sh "$socksServer2Port" > ../socks.log 2>&1 &
-            SOCKSPID=$!
-            echo -e "$okMsg"
-        fi
-
-        echo -n "Starting relay...          "
-        run_relay > relay.log 2>&1 &
-        echo -e "$okMsg"
-
-        sleep "$sleeptime_between_spawns"
-
-        echo -n "Starting trustee 0...          "
-        run_trustee 0 > trustee0.log 2>&1 &
-        echo -e "$okMsg"
-
-        sleep "$sleeptime_between_spawns"
-
-        echo -n "Starting client 0... (SOCKS on :8081)  "
-        run_client 0 8081 > client0.log 2>&1 &
-        echo -e "$okMsg"
-
-        if [ "$socks_test_n_clients" -gt 1 ]; then
-            sleep "$sleeptime_between_spawns"
-
-            echo -n "Starting client 1... (SOCKS on :8082)  "
-            run_client 1 8082 > client1.log 2>&1 &
-            echo -e "$okMsg"
-        fi
-
-        if [ "$socks_test_n_clients" -gt 2 ]; then
-            sleep "$sleeptime_between_spawns"
-
-            echo -n "Starting client 2... (SOCKS on :8083)  "
-            run_client 2 8083 > client2.log 2>&1 &
-            echo -e "$okMsg"
-        fi
-
-        #let it boot
-        waitTime=20
-        echo "Waiting $waitTime seconds..."
-        sleep "$waitTime"
-
-        echo "Doing SOCKS HTTP request..."
-        curl google.com --socks5 127.0.0.1:8081 --max-time 10 1>/dev/null 2>&1
-        res=$?
-
-        pkill prifi 2>/dev/null
-        kill -TERM $(pidof "go run run-server.go")  2>/dev/null
-
-        if [ "$res" -eq 0 ]; then
-            echo "Test succeeded"
-            exit 0
-        else
-            echo "Test failed"
-            exit 1
-        fi
+        echo -e "All tests passed."
+        exit 0
+        
         ;;
 
     ping-through-prifi)

@@ -40,7 +40,7 @@ for {set i 0} {$i < $n_trustees} {incr i} {
 for {set i 0} {$i < $n_clients} {incr i} {
    set client($i) [$ns node]
    tb-set-node-os $client($i) Ubuntu1404-64-STD
-   tb-set-hardware $client($i) bpc3000
+   tb-set-hardware $client($i) bpc3060
    tb-set-node-startcmd $client($i)  /share/t1t2/set_route
    tb-set-node-failure-action $client($i) "nonfatal"
    append lanstr_clients "$client($i) "

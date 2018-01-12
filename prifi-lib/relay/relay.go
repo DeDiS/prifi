@@ -113,6 +113,7 @@ func (p *PriFiLibRelayInstance) Received_ALL_ALL_PARAMETERS(msg net.ALL_ALL_PARA
 	p.relayState.ExperimentRoundLimit = reportingLimit
 	p.relayState.UpstreamCellSize = upCellSize
 	p.relayState.DownstreamCellSize = downCellSize
+	p.relayState.bitrateStatistics = prifilog.NewBitRateStatistics(upCellSize)
 	p.relayState.UseDummyDataDown = useDummyDown
 	p.relayState.UseOpenClosedSlots = useOpenClosedSlots
 	p.relayState.UseUDP = useUDP

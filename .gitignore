@@ -45,3 +45,4 @@ last-simul.log
 experiment_out
 pcap/
 .GPID*
+logs.sh

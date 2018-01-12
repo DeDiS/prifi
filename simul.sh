@@ -268,12 +268,12 @@ case $1 in
 
     simul-vary-nclients)
 
-        NTRUSTEES=1
+        NTRUSTEES=3
         NRELAY=1
 
         "$THIS_SCRIPT" simul-cl
 
-        for repeat in {4..6}
+        for repeat in {1..4}
         do
             for i in {10..90..10}
             do
@@ -284,29 +284,7 @@ case $1 in
                 rm -f "$CONFIG_FILE"
                 sed "s/Hosts = x/Hosts = $hosts/g" "$TEMPLATE_FILE" > "$CONFIG_FILE"
 
-                timeout "$TIMEOUT" "$THIS_SCRIPT" simul | tee experiment_${i}_${repeat}.txt
-            done
-        done
-
-        ;;
-
-    simul-vary-nclients2)
-
-        NTRUSTEES=1
-        NRELAY=1
-
-        for i in {10..90..10}
-        do
-            for repeat in {1..4}
-            do
-                hosts=$(($NTRUSTEES + $NRELAY + $i))
-                echo "Simulating for HOSTS=$hosts..."
-
-                #fix the config
-                rm -f "$CONFIG_FILE"
-                sed "s/Hosts = x/Hosts = $hosts/g" "$TEMPLATE_FILE" > "$CONFIG_FILE"
-
-                timeout "$TIMEOUT" "$THIS_SCRIPT" simul | tee experiment_${i}_${repeat}.txt
+                timeout "$SIMULATION_TIMEOUT" "$THIS_SCRIPT" simul | tee experiment_${i}_${repeat}.txt
             done
         done
 
@@ -329,7 +307,7 @@ case $1 in
                 rm -f "$CONFIG_FILE"
                 sed "s/OpenClosedSlotsMinDelayBetweenRequests = x/OpenClosedSlotsMinDelayBetweenRequests = $i/g" "$TEMPLATE_FILE" > "$CONFIG_FILE"
 
-                timeout "$TIMEOUT" "$THIS_SCRIPT" simul | tee experiment_${i}_${repeat}.txt
+                timeout "$SIMULATION_TIMEOUT" "$THIS_SCRIPT" simul | tee experiment_${i}_${repeat}.txt
             done
         done
 
@@ -349,7 +327,7 @@ case $1 in
                 rm -f "$CONFIG_FILE"
                 sed "s/RelayWindowSize = x/RelayWindowSize = $window/g" "$TEMPLATE_FILE" > "$CONFIG_FILE"
 
-                timeout "$TIMEOUT" "$THIS_SCRIPT" simul | tee experiment_${window}_${repeat}.txt
+                timeout "$SIMULATION_TIMEOUT" "$THIS_SCRIPT" simul | tee experiment_${window}_${repeat}.txt
             done
         done
         ;;
@@ -368,7 +346,7 @@ case $1 in
                 rm -f "$CONFIG_FILE"
                 sed "s/CellSizeUp = x/CellSizeUp = $upsize/g" "$TEMPLATE_FILE" > "$CONFIG_FILE"
 
-                timeout "$TIMEOUT" "$THIS_SCRIPT" simul | tee experiment_${upsize}_${repeat}.txt
+                timeout "$SIMULATION_TIMEOUT" "$THIS_SCRIPT" simul | tee experiment_${upsize}_${repeat}.txt
             done
         done
         ;;
@@ -387,7 +365,7 @@ case $1 in
                 rm -f "$CONFIG_FILE"
                 sed "s/CellSizeDown = x/CellSizeDown = $downsize/g" "$TEMPLATE_FILE" > "$CONFIG_FILE"
 
-                timeout "$TIMEOUT" "$THIS_SCRIPT" simul | tee experiment_${downsize}_${repeat}.txt
+                timeout "$SIMULATION_TIMEOUT" "$THIS_SCRIPT" simul | tee experiment_${downsize}_${repeat}.txt
             done
         done
         ;;

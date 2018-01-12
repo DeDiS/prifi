@@ -125,7 +125,11 @@ func (p *PriFiLibTrusteeInstance) Send_TRU_REL_DC_CIPHER(rateChan chan int16) {
 		case newRate := <-rateChan:
 
 			if currentRate != newRate {
-				log.Lvl1("Trustee " + strconv.Itoa(p.trusteeState.ID) + " : rate changed from " + strconv.Itoa(int(currentRate)) + " to " + strconv.Itoa(int(newRate)))
+				if (newRate == TRUSTEE_RATE_ACTIVE && !p.trusteeState.AlwaysSlowDown) {
+					log.Lvl1("Trustee " + strconv.Itoa(p.trusteeState.ID) + " : rate changed from " + strconv.Itoa(int(currentRate)) + " to FULL")
+				} else if (newRate == TRUSTEE_RATE_HALVED && !p.trusteeState.NeverSlowDown) {
+					log.Lvl1("Trustee " + strconv.Itoa(p.trusteeState.ID) + " : rate changed from " + strconv.Itoa(int(currentRate)) + " to HALVED")
+				}
 				currentRate = newRate
 			}
 
@@ -146,7 +150,8 @@ func (p *PriFiLibTrusteeInstance) Send_TRU_REL_DC_CIPHER(rateChan chan int16) {
 				roundID = newRoundID
 
 			} else if currentRate == TRUSTEE_RATE_HALVED {
-				if !p.trusteeState.NeverSlowDown { //sorry double neg. If NeverSlowDown = true, we skip this sleep
+				if !p.trusteeState.NeverSlowDown {
+					//sorry double neg. If NeverSlowDown = true, we skip this sleep
 					log.Lvl4("Trustee " + strconv.Itoa(p.trusteeState.ID) + " rate HALVED, sleeping for " + strconv.Itoa(p.trusteeState.BaseSleepTime))
 					time.Sleep(time.Duration(p.trusteeState.BaseSleepTime) * time.Millisecond)
 				}
@@ -194,7 +199,7 @@ func sendData(p *PriFiLibTrusteeInstance, roundID int32) (int32, error) {
 		RoundID:   roundID,
 		TrusteeID: p.trusteeState.ID,
 		Data:      data}
-	if !p.messageSender.SendToRelayWithLog(toSend, "(round "+strconv.Itoa(int(roundID))+")") {
+	if !p.messageSender.SendToRelayWithLog(toSend, "(round " + strconv.Itoa(int(roundID)) + ")") {
 		return -1, errors.New("Could not send")
 	}
 
