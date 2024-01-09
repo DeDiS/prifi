@@ -1,16 +1,17 @@
 # PriFi: A Low-Latency, Tracking-Resistant Protocol for Local-Area Anonymity [![Build Status](https://travis-ci.org/dedis/prifi.svg?branch=master)](https://travis-ci.org/dedis/prifi) [![Go Report Card](https://goreportcard.com/badge/github.com/dedis/prifi)](https://goreportcard.com/report/github.com/dedis/prifi) [![Coverage Status](https://coveralls.io/repos/github/dedis/prifi/badge.svg?branch=master)](https://coveralls.io/github/dedis/prifi?branch=master)
 
-## Introduction
 
+> [!WARNING]  
+> This software is archived and of experimental quality. Do not use it yet for security-critical purposes. Use at your own risk!
+
+
+## Introduction
 
 This repository implements PriFi, an anonymous communication protocol with provable traffic-analysis resistance and small latency suitable for wireless networks. PriFi provides a network access mechanism for protecting members of an organization who access the Internet while on-site (via privacy-preserving WiFi networking) and while off-site (via privacy-preserving virtual private networking or VPN). The small latency cost is achieved by leveraging the client-relay-server topology common in WiFi networks. The main entities of PriFi are: relay, trustee server (or Trustees), and clients. These collaborate to implement a Dining Cryptographer's network ([DC-nets](https://en.wikipedia.org/wiki/Dining_cryptographers_problem)) that can anonymize the client upstream traffic. The relay is a WiFi router that can process normal TCP/IP traffic in addition to running our protocol.
 
 For an extended introduction, please check our [website](https://prifi.net/).
 
 For more details about PriFi, please check our [paper](https://petsymposium.org/2020/files/papers/issue4/popets-2020-0059.pdf).
-
-
-**Warning: This software is experimental and still under development. Do not use it yet for security-critical purposes. Use at your own risk!**
 
 ## Getting PriFi
 
